@@ -21,7 +21,9 @@ elements_depends_on_subdirs(ElementsKernel)
 # Examples:
 #          find_package(CppUnit)
 #===============================================================================
-# find_package(cfitsio)
+find_package(Boost)
+find_package(Eigen3)
+find_package(GSL)
 
 #===============================================================================
 # Declare the library dependencies here
@@ -31,9 +33,10 @@ elements_depends_on_subdirs(ElementsKernel)
 #                     INCLUDE_DIRS Boost ElementsKernel
 #                     PUBLIC_HEADERS ElementsExamples)
 #===============================================================================
-# elements_add_library(PHZ_GPz src/lib/*.cpp
-#                      LINK_LIBRARIES ElementsKernel
-#                      PUBLIC_HEADERS PHZ_GPz)
+elements_add_library(PHZ_GPz src/lib/*.cpp
+                     LINK_LIBRARIES GSL Eigen3 ElementsKernel
+                     INCLUDE_DIRS GSL Eigen3 ElementsKernel
+                     PUBLIC_HEADERS PHZ_GPz)
 
 #===============================================================================
 # Declare the executables here
@@ -42,8 +45,6 @@ elements_depends_on_subdirs(ElementsKernel)
 #                        LINK_LIBRARIES Boost ElementsExamples
 #                        INCLUDE_DIRS Boost ElementsExamples)
 #===============================================================================
-elements_add_executable(GPz src/program/GPz.cpp
-                     LINK_LIBRARIES ElementsKernel)
 
 #===============================================================================
 # Declare the Boost tests here
@@ -53,15 +54,17 @@ elements_add_executable(GPz src/program/GPz.cpp
 #                       INCLUDE_DIRS ElementsExamples
 #                       LINK_LIBRARIES ElementsExamples TYPE Boost)
 #===============================================================================
-# elements_add_unit_test(GPz_dummy_test tests/src/dummy_test.cpp
-#                      LINK_LIBRARIES PHZ_GPz
-#                      TYPE Boost)
+elements_add_unit_test(GPz tests/src/GPz_test.cpp 
+                     EXECUTABLE PHZ_GPz_GPz_test
+                     LINK_LIBRARIES PHZ_GPz
+                     TYPE Boost)
 
 #===============================================================================
 # Use the following macro for python modules, scripts and aux files:
 #  elements_install_python_modules()
 #  elements_install_scripts()
 #===============================================================================
+elements_install_python_modules()
 
 #===============================================================================
 # Declare the Python programs here
@@ -75,4 +78,3 @@ elements_add_executable(GPz src/program/GPz.cpp
 # Examples:
 #          elements_install_conf_files()
 #===============================================================================
-elements_install_conf_files()
