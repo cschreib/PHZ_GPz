@@ -29,6 +29,65 @@
 
 namespace PHZ_GPz {
 
+// ==============================
+// Enumerations for configuration
+// ==============================
+
+/**
+ * @brief Choice of prior mean function
+ */
+enum class PriorMeanFunction {
+    ZERO, LINEAR
+};
+
+/**
+ * @brief Choice of covariance parametrization
+ */
+enum class CovarianceType {
+    GLOBAL_LENGTH,      // GPGL
+    VARIABLE_LENGTH,    // GPVL
+    GLOBAL_DIAGONAL,    // GPGD
+    VARIABLE_DIAGONAL,  // GPVD
+    GLOBAL_COVARIANCE,  // GPGC
+    VARIABLE_COVARIANCE // GPVC
+};
+
+/**
+ * @brief Choice of output noise parametrization
+ */
+enum class OutputUncertaintyType {
+    UNIFORM,
+    INPUT_DEPENDENT
+};
+
+/** \var PHZ_GPz::OutputUncertaintyType::UNIFORM
+ * @brief Uniform uncertainty
+ *
+ * The uncertainty on the output is assumed to be uniform, namely, it does not depend on the inputs.
+ */
+
+/** \var PHZ_GPz::OutputUncertaintyType::INPUT_DEPENDENT
+ * @brief Input-dependent uncertainty
+ *
+ * The uncertainty on the output is modeled as a linear combination of basis functions,
+ * with weights independent of those used to model the output value itself. This leads to an
+ * input-dependent uncertainty (heteroscedastic noise). Selecting this model increases the number
+ * of hyper-parameters by two times the number of basis functions.
+ */
+
+/**
+ * @brief Choice of training data weighting scheme
+ */
+enum class WeightingScheme {
+    NATURAL,
+    ONE_OVER_ONE_PLUS_OUTPUT,
+    BALANCED
+};
+
+// =========
+// GPz class
+// =========
+
 /**
  * @class GPz
  * @brief Training and prediction using Gaussian Processes
@@ -36,58 +95,16 @@ namespace PHZ_GPz {
  */
 class GPz {
 
-public:
-
-    // Enumerations for configuration
-
-    /**
-     * @brief Choice of prior mean function
-     */
-    enum class PriorMeanFunction {
-        ZERO, LINEAR
-    };
-
-    /**
-     * @brief Choice of covariance parametriation
-     */
-    enum class CovarianceType {
-        GLOBAL_LENGTH,      // GPGL
-        VARIABLE_LENGTH,    // GPVL
-        GLOBAL_DIAGONAL,    // GPGD
-        VARIABLE_DIAGONAL,  // GPVD
-        GLOBAL_COVARIANCE,  // GPGC
-        VARIABLE_COVARIANCE // GPVC
-    };
-
-    /**
-     * @brief Choice of output noise parametrization
-     */
-    enum class OutputErrorType {
-        CONSTANT,
-        HETEROSCEDASTIC
-    };
-
-    /**
-     * @brief Choice of training data weighting scheme
-     */
-    enum class WeightingScheme {
-        NATURAL,
-        ONE_OVER_ONE_PLUS_OUTPUT,
-        BALANCED
-    };
-
-private:
-
     // =======================
     // Configuration variables
     // =======================
 
-    uint_t            numberPseudoInputs_ = 100;
-    PriorMeanFunction priorMean_ = PriorMeanFunction::LINEAR;
-    CovarianceType    covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
-    OutputErrorType   outputErrorType_ = OutputErrorType::HETEROSCEDASTIC;
-    WeightingScheme   weightingScheme_ = WeightingScheme::BALANCED;
-    double            balancedWeightingBinSize_ = 0.1;
+    uint_t                numberBasisFunctions_ = 100;
+    PriorMeanFunction     priorMean_ = PriorMeanFunction::LINEAR;
+    CovarianceType        covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
+    OutputUncertaintyType outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
+    WeightingScheme       weightingScheme_ = WeightingScheme::BALANCED;
+    double                balancedWeightingBinSize_ = 0.1;
 
     // ==================
     // Indexing variables
@@ -96,9 +113,9 @@ private:
     uint_t numberFeatures_ = 0;
     uint_t numberParameters_ = 0;
 
-    uint_t indexPseudoPosition_ = 0;
-    uint_t indexPseudoRelevance_ = 0;
-    uint_t indexPseudoCovariance_ = 0;
+    uint_t indexBasisPosition_ = 0;
+    uint_t indexBasisRelevance_ = 0;
+    uint_t indexBasisCovariance_ = 0;
     uint_t indexError_ = 0;
     uint_t indexErrorWeight_ = 0;
     uint_t indexErrorRelevance_ = 0;
@@ -108,14 +125,19 @@ private:
     // Hyper-parameters
     // ================
 
-    Mat2d              pseudoInputPositions_;
-    Mat1d              pseudoInputRelevances_;
-    std::vector<Mat2d> pseudoInputCovariances_;
-    double             errorConstant_ = 0.0;
-    Mat1d              errorWeights_;
-    Mat1d              errorRelevances_;
-    double             priorConstant_ = 0.0;
-    Mat1d              priorLinearCoefficients_;
+    struct HyperParameters {
+        Mat2d              basisFunctionPositions;
+        Mat2d              basisFunctionPositions;
+        Mat1d              basisFunctionRelevances;
+        std::vector<Mat2d> basisFunctionCovariances;
+        double             uncertaintyConstant = 0.0;
+        Mat1d              uncertaintyBasisWeights;
+        Mat1d              uncertaintyBasisRelevances;
+        double             priorConstant = 0.0;
+        Mat1d              priorLinearCoefficients;
+    };
+
+    HyperParameters parameters_, derivatives_;
 
     // ======================
     // Minimization variables
@@ -123,563 +145,54 @@ private:
 
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
-    Mat1d  derivatives_;
 
-private:
+    // ====================================
+    // Internal functions: hyper-parameters
+    // ====================================ip
 
-    // =========================
-    // Internal functions: setup
-    // =========================
+    Vec1d makeParameterArray_(const HyperParameters& inputParams) const;
 
-    void updateNumberParameters_() {
-        // Pseudo input position
-        indexPseudoPosition_ = 0;
-        numberParameters_ += numberPseudoInputs_*numberFeatures_;
+    void loadParametersArray_(const Vec1d& inputParams, HyperParameters& outputParams) const;
 
-        // Pseudo input relevance
-        indexPseudoRelevance_ = numberParameters_;
-        numberParameters_ += numberPseudoInputs_;
+    void resizeHyperParameters_(HyperParameters& params) const;
 
-        // Pseudo input covariance
-        indexPseudoCovariance_ = numberParameters_;
-        switch (covarianceType_) {
-            case CovarianceType::GLOBAL_LENGTH: {
-                numberParameters_ += 1;
-                break;
-            }
-            case CovarianceType::VARIABLE_LENGTH: {
-                numberParameters_ += numberPseudoInputs_;
-                break;
-            }
-            case CovarianceType::GLOBAL_DIAGONAL: {
-                numberParameters_ += numberFeatures_;
-                break;
-            }
-            case CovarianceType::VARIABLE_DIAGONAL : {
-                numberParameters_ += numberFeatures_*numberPseudoInputs_;
-                break;
-            }
-            case CovarianceType::GLOBAL_COVARIANCE : {
-                numberParameters_ += numberFeatures_*(numberFeatures_ + 1)/2;
-                break;
-            }
-            case CovarianceType::VARIABLE_COVARIANCE : {
-                numberParameters_ += numberFeatures_*(numberFeatures_ + 1)/2*numberPseudoInputs_;
-                break;
-            }
-        }
+    // ==================================
+    // Internal functions: initialization
+    // ==================================
 
-        // Output error parametrization
-        indexError_ = numberParameters_;
-        switch (outputErrorType_) {
-            case OutputErrorType::CONSTANT: {
-                numberParameters_ += 1;
-                break;
-            }
-            case OutputErrorType::HETEROSCEDASTIC: {
-                // Constant
-                numberParameters_ += 1;
+    void updateNumberParameters_();
 
-                // Weights
-                indexErrorWeight_ = numberParameters_;
-                numberParameters_ += numberPseudoInputs_;
+    void resizeArrays_();
 
-                // Relevance
-                indexErrorRelevance_ = numberParameters_;
-                numberParameters_ += numberPseudoInputs_;
-                break;
-            }
-        }
+    void reset_();
 
-        // Prior mean function
-        indexPriorMean_ = numberParameters_;
-        switch (priorMean_) {
-            case PriorMeanFunction::ZERO: {
-                break;
-            }
-            case PriorMeanFunction::LINEAR: {
-                numberParameters_ += numberFeatures_ + 1;
-                break;
-            }
-        };
-    }
+    void initializeBasisFunctions_();
 
-    Vec1d makeParameterArray_() const {
-        Vec1d parameters(numberParameters_);
+    void initializeBasisFunctionRelevances_();
 
-        const uint_t m = numberPseudoInputs_;
-        const uint_t d = numberFeatures_;
+    Mat2d initializeCovariancesFillLinear_(const Vec2d& x);
 
-        // Pseudo input position
-        uint_t ip = 0;
-        for (uint_t i = 0; i < m; ++i)
-        for (uint_t j = 0; j < d; ++j) {
-            parameters[ip] = pseudoInputPositions_(i,j);
-            ++ip;
-        }
+    Vec1d initializeCovariancesMakeGamma_(const Vec2d& x);
 
-        // Pseudo input relevances
-        for (uint_t i = 0; i < m; ++i) {
-            parameters[ip] = pseudoInputRelevances_[i];
-            ++ip
-        }
+    void initializeCovariances_(const Vec2d& x);
 
-        // Pseudo input covariances
-        switch (covarianceType_) {
-            case CovarianceType::GLOBAL_LENGTH: {
-                parameters_[ip] = pseudoInputCovariances_[0](0,0);
-                ++ip;
-                break;
-            }
-            case CovarianceType::VARIABLE_LENGTH: {
-                for (uint_t i = 0; i < m; ++i) {
-                    parameters_[ip] = pseudoInputCovariances_[i](0,0);
-                    ++ip;
-                }
-                break;
-            }
-            case CovarianceType::GLOBAL_DIAGONAL: {
-                for (uint_t j = 0; j < d; ++j) {
-                    parameters[ip] = pseudoInputCovariances_[0](j,j);
-                    ++ip;
-                }
-                break;
-            }
-            case CovarianceType::VARIABLE_DIAGONAL : {
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j) {
-                    parameters[ip] = pseudoInputCovariances_[i](j,j);
-                    ++ip;
-                }
-                break;
-            }
-            case CovarianceType::GLOBAL_COVARIANCE : {
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = j; k < d; ++k) {
-                    parameters[ip] = pseudoInputCovariances_[0](j,k);
-                    ++ip;
-                }
-                break;
-            }
-            case CovarianceType::VARIABLE_COVARIANCE : {
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = j; k < d; ++k) {
-                    parameters[ip] = pseudoInputCovariances_[i](j,k);
-                    ++ip;
-                }
-                break;
-            }
-        }
+    void initializeErrors_();
 
-        // Output error parametrization
-        switch (outputErrorType_) {
-            case OutputErrorType::CONSTANT: {
-                parameters[ip] = errorConstant_;
-                ++ip;
-                break;
-            }
-            case OutputErrorType::HETEROSCEDASTIC: {
-                // Constant
-                parameters[ip] = errorConstant_;
-                ++ip;
+    void initializePriors_();
 
-                // Weights
-                for (uint_t i = 0; i < m; ++i) {
-                    parameters[ip] = errorWeights_[i];
-                    ++ip;
-                }
-
-                // Relevance
-                for (uint_t i = 0; i < m; ++i) {
-                    parameters[ip] = errorRelevances_[i];
-                    ++ip;
-                }
-
-                break;
-            }
-        }
-
-        // Prior mean function
-        switch (priorMean_) {
-            case PriorMeanFunction::ZERO: {
-                break;
-            }
-            case PriorMeanFunction::LINEAR: {
-                parameters[ip] = priorConstant_;
-                ++ip;
-
-                for (uint_t j = 0; j < d; ++j) {
-                    parameters[ip] = priorLinearCoefficients_[j];
-                    ++ip;
-                }
-                break;
-            }
-        };
-
-        assert(ip == parameters.size());
-
-        return parameters;
-    }
-
-    void loadParametersArray_(const Vec1d& parameters) {
-        const uint_t m = numberPseudoInputs_;
-        const uint_t d = numberFeatures_;
-
-        // Pseudo input position
-        uint_t ip = 0;
-        for (uint_t i = 0; i < m; ++i)
-        for (uint_t j = 0; j < d; ++j) {
-            pseudoInputPositions_(i,j) = parameters[ip];
-            ++ip;
-        }
-
-        // Pseudo input relevances
-        for (uint_t i = 0; i < m; ++i) {
-            pseudoInputRelevances_[i] = parameters[ip];
-            ++ip
-        }
-
-        // Pseudo input covariances
-        switch (covarianceType_) {
-            case CovarianceType::GLOBAL_LENGTH: {
-                double covariance = parameters_[ip];
-                ++ip;
-
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = 0; k < d; ++k) {
-                    pseudoInputCovariances_[i](j,k) = (k == j ? covariance : 0.0);
-                }
-
-                break;
-            }
-            case CovarianceType::VARIABLE_LENGTH: {
-                for (uint_t i = 0; i < m; ++i) {
-                    double covariance = parameters_[ip];
-                    ++ip;
-
-                    for (uint_t j = 0; j < d; ++j)
-                    for (uint_t k = 0; k < d; ++k) {
-                        pseudoInputCovariances_[i](j,k) = (k == j ? covariance : 0.0);
-                    }
-                }
-                break;
-            }
-            case CovarianceType::GLOBAL_DIAGONAL: {
-                for (uint_t j = 0; j < d; ++j) {
-                    double covariance = parameters_[ip];
-                    ++ip;
-
-                    for (uint_t i = 0; i < m; ++i)
-                    for (uint_t k = 0; k < d; ++k) {
-                        pseudoInputCovariances_[i](j,k) = (k == j ? covariance : 0.0);
-                    }
-                }
-                break;
-            }
-            case CovarianceType::VARIABLE_DIAGONAL : {
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j) {
-                    double covariance = parameters[ip];
-                    ++ip;
-
-                    for (uint_t k = 0; k < d; ++k) {
-                        pseudoInputCovariances_[i](j,k) = (k == j ? covariance : 0.0);
-                    }
-                }
-                break;
-            }
-            case CovarianceType::GLOBAL_COVARIANCE : {
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = j; k < d; ++k) {
-                    double covariance = parameters[ip];
-                    ++ip;
-
-                    for (uint_t i = 0; i < d; ++i) {
-                        pseudoInputCovariances_[i](j,k) = covariance;
-                        pseudoInputCovariances_[i](k,j) = covariance;
-                    }
-                }
-                break;
-            }
-            case CovarianceType::VARIABLE_COVARIANCE : {
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = j; k < d; ++k) {
-                    double covariance = parameters[ip];
-                    ++ip;
-
-                    pseudoInputCovariances_[i](j,k) = covariance;
-                    pseudoInputCovariances_[i](k,j) = covariance;
-                }
-                break;
-            }
-        }
-
-        // Output error parametrization
-        switch (outputErrorType_) {
-            case OutputErrorType::CONSTANT: {
-                errorConstant_ = parameters[ip];
-                ++ip;
-                break;
-            }
-            case OutputErrorType::HETEROSCEDASTIC: {
-                // Constant
-                errorConstant_ = parameters[ip];
-                ++ip;
-
-                // Weights
-                for (uint_t i = 0; i < m; ++i) {
-                    errorWeights_[i]; = parameters[ip];
-                    ++ip;
-                }
-
-                // Relevance
-                for (uint_t i = 0; i < m; ++i) {
-                    errorRelevances_[i] = parameters[ip];
-                    ++ip;
-                }
-
-                break;
-            }
-        }
-
-        // Prior mean function
-        switch (priorMean_) {
-            case PriorMeanFunction::ZERO: {
-                break;
-            }
-            case PriorMeanFunction::LINEAR: {
-                priorConstant_ = parameters[ip];
-                ++ip;
-
-                for (uint_t j = 0; j < d; ++j) {
-                    priorLinearCoefficients_[j] = parameters[ip];
-                    ++ip;
-                }
-                break;
-            }
-        };
-
-        assert(ip == parameters.size());
-    }
-
-    void resizeArrays_() const {
-        const uint_t m = numberPseudoInputs_;
-        const uint_t d = numberFeatures_;
-
-        pseudoInputPositions_.resize(m,d);
-        pseudoInputRelevances_.resize(m);
-        pseudoInputCovariances_.resize(m);
-        for (uint_t i = 0; i < m; ++i) {
-            pseudoInputCovariances_[i].resize(d,d);
-        }
-
-        errorConstant_ = 0.0;
-        errorWeights_.resize(m);
-        errorRelevances_.resize(m);
-
-        priorConstant_ = 0.0;
-        priorLinearCoefficients_.resize(d);
-    }
-
-    void reset_() {
-        pseudoInputPositions_.clear();
-        pseudoInputRelevances_.clear();
-        pseudoInputCovariances_.clear();
-
-        errorConstant_ = 0.0;
-        errorWeights_.clear();
-        errorRelevances_.clear();
-
-        priorConstant_ = 0.0;
-        priorLinearCoefficients_.clear();
-    }
-
-    void initializePseudoInputs_() {
-        // TODO: copy the GPz MatLab implementation for this
-
-        MapMat2d pseudoPositions = getPseudoInputPositions_();
-        for (uint_t i = 0; i < m; ++i)
-        for (uint_t k = 0; k < d; ++k) {
-            // TODO: set this to better initial value
-            pseudoPositions(i,k) = 0.0;
-        }
-    }
-
-    void initializePseudoInputRelevances_() {
-        // TODO: copy the GPz MatLab implementation for this
-
-        // Pseudo input relevance
-        for (uint_t i = 0, ip = indexPseudoRelevance_; i < m; ++i, ++ip) {
-            parameters_[ip] = 1.0;
-        }
-    }
-
-    Mat2d initializeCovariancesFillLinear_(const Vec2d& x) {
-        // TODO: copy the GPz MatLab implementation for this
-
-    }
-
-    Vec1d initializeCovariancesMakeGamma_(const Vec2d& x) {
-        const uint_t m = numberPseudoInputs_;
-        const uint_t d = numberFeatures_;
-        const uint_t n = x.rows();
-
-        Mat2d linearInputs = initializeCovariancesFillLinear_(x);
-
-        Vec1d gamma(m);
-        double factor = 0.5*pow(m, 1.0/d);
-        for (uint_t i = 0; i < m; ++i) {
-            double meanSquaredDist = 0.0;
-            for (uint_t j = 0; j < n; ++j)
-            for (uint_t k = 0; k < d; ++k) {
-                double d = pseudoInputPositions_(i,k) - linearInputs(j,k);
-                me += d*d;
-            }
-
-            meanSquaredDist /= n;
-
-            gamma[i] = sqrt(factor/meanSquaredDist);
-        }
-
-        return gamma;
-    }
-
-    void initializeCovariances_(const Vec2d& x) {
-        const uint_t m = numberPseudoInputs_;
-        const uint_t d = numberFeatures_;
-
-        // Pseudo input covariance
-        Vec1d gamma = initializeCovariancesMakeGamma_(x);
-        switch (covarianceType_) {
-            case CovarianceType::GLOBAL_LENGTH: {
-                parameters_[indexPseudoCovariance_] = gamma.mean();
-                break;
-            }
-            case CovarianceType::VARIABLE_LENGTH: {
-                for (uint_t i = 0, ip = indexPseudoCovariance_; i < m; ++i, ++ip) {
-                    parameters_[ip] = gamma[i];
-                }
-                break;
-            }
-            case CovarianceType::GLOBAL_DIAGONAL: {
-                double mean_gamma = gamma.mean();
-                for (uint_t i = 0, ip = indexPseudoCovariance_; i < d; ++i, ++ip) {
-                    parameters_[ip] = mean_gamma;
-                }
-                break;
-            }
-            case CovarianceType::VARIABLE_DIAGONAL : {
-                uint_t ip = indexPseudoCovariance_;
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; i < d; ++j) {
-                    parameters_[ip] = gamma[i];
-                    ++ip;
-                }
-                break;
-            }
-            case CovarianceType::GLOBAL_COVARIANCE : {
-                double mean_gamma = gamma.mean();
-                uint_t ip = indexPseudoCovariance_;
-                // Diagonal
-                for (uint_t i = 0; i < d; ++i, ++ip) {
-                    parameters_[ip] = mean_gamma;
-                }
-                // Off-diagonal
-                for (uint_t i = 0; i < d*(d-1)/2; ++i, ++ip) {
-                    parameters_[ip] = 0.0;
-                }
-                break;
-            }
-            case CovarianceType::VARIABLE_COVARIANCE : {
-                uint_t ip = indexPseudoCovariance_;
-                for (uint_t i = 0; i < m; ++i) {
-                    // Diagonal
-                    for (uint_t j = 0; j < d; ++j) {
-                        parameters_[ip] = gamma[i];
-                        ++ip;
-                    }
-                    // Off-diagonal
-                    for (uint_t j = 0; j < d*(d-1)/2; ++j) {
-                        parameters_[ip] = 0.0;
-                        ++ip;// TODO: copy the GPz MatLab implementation for this
-
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    void initializeErrors_() {
-        // TODO: copy the GPz MatLab implementation for this
-
-        const uint_t m = numberPseudoInputs_;
-
-        switch (outputErrorType_) {
-            case OutputErrorType::CONSTANT: {
-                parameters_[indexError_] = 1.0;
-                break;
-            }
-            case OutputErrorType::HETEROSCEDASTIC: {
-                parameters_[indexError_] = 1.0;
-                for (uint_t i = 0, ip = indexErrorWeight_; i < m; ++i, ++ip) {
-                    parameters_[ip] = 1.0;
-                }
-                for (uint_t i = 0, ip = indexErrorRelevance_; i < m; ++i, ++ip) {
-                    parameters_[ip] = 1.0;
-                }
-                break;
-            }
-        }
-    }
-
-    void initializePriors_() {
-        // TODO: copy the GPz MatLab implementation for this
-
-        const uint_t d = numberFeatures_;
-
-        switch (priorMean_) {
-            case PriorMeanFunction::ZERO: {
-                break;
-            }
-            case PriorMeanFunction::LINEAR: {
-                uint_t ip = indexPriorMean_;
-                // Constant
-                parameters_[ip] = 0.0;
-                ++ip;
-                // Weights
-                for (uint_t i = 0; i < d; ++i, ++ip) {
-                    parameters_[ip] = 1.0;
-                }
-                break;
-            }
-        };
-    }
-
-    void initializeFit_(const Vec2d& x, const Vec2d& xe, const Vec1d& y) {
-        // Create arrays, matrices, etc.
-        setNumberOfFeatures(x.cols());
-        updateNumberParameters_();
-        resizeArrays_();
-
-        // Set initial values for hyper-parameters
-        initializePseudoInputs_();
-        initializePseudoInputRelevances_();
-        initializeCovariances_(x);
-        initializeErrors_();
-        initializePriors_();
-    }
+    void initializeFit_(const Vec2d& x, const Vec2d& xe, const Vec1d& y);
 
     // =======================
     // Internal functions: fit
     // =======================
 
-    void updateLikelihood_(Minimize::FunctionOutput requested) {
+    void updateLikelihood_(Minimize::FunctionOutput requested);
 
-    }
+    // ==============================
+    // Internal functions: prediction
+    // ==============================
+
+    Vec1d predict_(const Vec2d& x, const Vec2d& xe);
 
 public:
 
@@ -721,9 +234,9 @@ public:
     // Configuration getters/setters
     // =============================
 
-    void setNumberOfPseudoInputs(uint_t num);
+    void setNumberOfBasisFunctions(uint_t num);
 
-    uint_t getNumberOfPseudoInputs() const;
+    uint_t getNumberOfBasisFunctions() const;
 
     void setPriorMeanFunction(PriorMeanFunction newFunction);
 
