@@ -920,10 +920,6 @@ Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     return output;
 }
 
-Vec1d GPz::predict(Mat2d input) const {
-    return predict(std::move(input), Mat2d());
-}
-
 }  // namespace PHZ_GPz
 
 

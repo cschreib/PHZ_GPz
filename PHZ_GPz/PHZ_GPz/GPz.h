@@ -338,8 +338,6 @@ public:
 
     Vec1d predict(Mat2d input, Mat2d inputError) const;
 
-    Vec1d predict(Mat2d input) const;
-
 };  // End of GPz class
 
 }  // namespace PHZ_GPz
