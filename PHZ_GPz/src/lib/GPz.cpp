@@ -383,14 +383,25 @@ void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
+    // Transform error to variance
+    if (inputError.rows() != 0) {
+        for (uint_t i = 0; i < n; ++i)
+        for (uint_t j = 0; j < d; ++j) {
+            inputError(i,j) = inputError(i,j)*inputError(i,j);
+        }
+    }
+
+    // Apply normalization scheme
     if (normalizationScheme_ == NormalizationScheme::WHITEN) {
         for (uint_t i = 0; i < n; ++i)
         for (uint_t j = 0; j < d; ++j) {
             input(i,j) = (input(i,j) - featureMean_[j])/featureSigma_[j];
+
+            if (inputError.rows() != 0) {
+                inputError(i,j) /= featureSigma_[j]*featureSigma_[j];
+            }
         }
     }
-
-    // TODO: normalize error too?
 }
 
 void GPz::applyOutputNormalization_(Vec1d& output) const {
@@ -442,8 +453,6 @@ void GPz::normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output) {
 
     applyInputNormalization_(input, inputError);
     applyOutputNormalization_(output);
-
-    // TODO: implement fixPsi() for error (see if it is applied to prediciton input too)
 }
 
 void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Vec1d& output) {
