@@ -25,6 +25,7 @@
 #define _PHZ_GPZ_GPZ_H
 
 #include "PHZ_GPz/EigenWrapper.h"
+#include "PHZ_GPz/GSLWrapper.h"
 #include <vector>
 
 namespace PHZ_GPz {
@@ -90,7 +91,7 @@ enum class WeightingScheme {
 enum class NormalizationScheme {
     NATURAL,
     WHITEN
-}
+};
 
 // =========
 // GPz class
@@ -112,7 +113,7 @@ class GPz {
     CovarianceType        covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
     OutputUncertaintyType outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
     WeightingScheme       weightingScheme_ = WeightingScheme::BALANCED;
-    NormalizationScheme   normalizationScheme_ = NormalizationScheme::WHITENED;
+    NormalizationScheme   normalizationScheme_ = NormalizationScheme::WHITEN;
     double                balancedWeightingBinSize_ = 0.1;
     double                trainValidRatio_ = 0.5;
 
@@ -210,8 +211,6 @@ class GPz {
 
     void splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Vec1d& output);
 
-    void computeTrainingPCA_();
-
     void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output);
 
     void computeTrainingPCA_();
@@ -220,7 +219,7 @@ class GPz {
 
     void initializeBasisFunctionRelevances_();
 
-    Mat2d initializeCovariancesFillLinear_(const Mat2d& x) const;
+    Mat2d initializeCovariancesFillLinear_(Mat2d x) const;
 
     Vec1d initializeCovariancesMakeGamma_(const Mat2d& x) const;
 
@@ -240,7 +239,7 @@ class GPz {
     // Internal functions: prediction
     // ==============================
 
-    Vec1d predict_(const Mat2d& x, const Mat2d& xe);
+    Vec1d predict_(const Mat2d& x, const Mat2d& xe) const;
 
 public:
 

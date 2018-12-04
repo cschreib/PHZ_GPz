@@ -36,12 +36,13 @@ namespace Minimize {
         double relativeTolerance = 1e-3;
         uint_t maxIterations = 1000;
         bool   hasValidation = false;
+        uint_t maxValidationAttempts = 5;
     };
 
     struct Result {
         bool success = false;
         Vec1d parameters;
-        double minimum = dnan;
+        double metric = std::numeric_limits<double>::quiet_NaN();
         uint_t numberIterations = 0;
     };
 
@@ -65,8 +66,9 @@ namespace Minimize {
         mf.params = reinterpret_cast<void*>(&function);
 
         mf.f = [](const gsl_vector* xGSL, void* data) {
-            Vec1d xEigen(n);
-            for (uint_t i = 0; i < n; ++i) {
+            const uint_t tn = xGSL->size;
+            Vec1d xEigen(tn);
+            for (uint_t i = 0; i < tn; ++i) {
                 xEigen[i] = gsl_vector_get(xGSL, i);
             }
 
@@ -77,22 +79,24 @@ namespace Minimize {
         };
 
         mf.df = [](const gsl_vector* xGSL, void* data, gsl_vector* derivGSL) {
-            Vec1d xEigen(n);
-            for (uint_t i = 0; i < n; ++i) {
+            const uint_t tn = xGSL->size;
+            Vec1d xEigen(tn);
+            for (uint_t i = 0; i < tn; ++i) {
                 xEigen[i] = gsl_vector_get(xGSL, i);
             }
 
             functionPointer fp = reinterpret_cast<functionPointer>(data);
             Vec1d output = (*fp)(xEigen, FunctionOutput::DERIVATIVES);
 
-            for (uint_t i = 0; i < n; ++i) {
+            for (uint_t i = 0; i < tn; ++i) {
                 gsl_vector_set(derivGSL, i, output[i+1]);
             }
         };
 
         mf.fdf = [](const gsl_vector* xGSL, void* data, double* metric, gsl_vector* derivGSL) {
-            Vec1d xEigen(n);
-            for (uint_t i = 0; i < n; ++i) {
+            const uint_t tn = xGSL->size;
+            Vec1d xEigen(tn);
+            for (uint_t i = 0; i < tn; ++i) {
                 xEigen[i] = gsl_vector_get(xGSL, i);
             }
 
@@ -101,7 +105,7 @@ namespace Minimize {
 
             *metric = output[0];
 
-            for (uint_t i = 0; i < n; ++i) {
+            for (uint_t i = 0; i < tn; ++i) {
                 gsl_vector_set(derivGSL, i, output[i+1]);
             }
         };
@@ -109,6 +113,7 @@ namespace Minimize {
         gsl_vector* x = nullptr;
         gsl_multimin_fdfminimizer* m = nullptr;
         double bestValid = std::numeric_limits<double>::infinity();
+        uint_t noValidationImprovementAttempts = 0;
 
         try {
             // Initial conditions
@@ -160,7 +165,7 @@ namespace Minimize {
                         ++noValidationImprovementAttempts;
                     }
 
-                    if (noValidationImprovementAttempts == options.maxAttempts) {
+                    if (noValidationImprovementAttempts == options.maxValidationAttempts) {
                         result.success = true;
                         break;
                     }
@@ -169,10 +174,10 @@ namespace Minimize {
 
             // Write output
             for (uint_t i = 0; i < n; ++i) {
-                result.params[i] = gsl_vector_get(m->x, i);
+                result.parameters[i] = gsl_vector_get(m->x, i);
             }
 
-            result.value = m->f;
+            result.metric = m->f;
 
             // Cleanup
             gsl_multimin_fdfminimizer_free(m);
