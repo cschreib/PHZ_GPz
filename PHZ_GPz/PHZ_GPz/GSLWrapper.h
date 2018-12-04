@@ -35,6 +35,7 @@ namespace Minimize {
         double initialStep = 0.1;
         double relativeTolerance = 1e-3;
         uint_t maxIterations = 1000;
+        bool   hasValidation = false;
     };
 
     struct Result {
@@ -150,17 +151,19 @@ namespace Minimize {
                     xEigen[i] = gsl_vector_get(m->x, i);
                 }
 
-                Vec1d valid = function(xEigen, FunctionOutput::METRIC_VALID);
-                if (valid[0] < bestValid) {
-                    bestValid = valid[0];
-                    noValidationImprovementAttempts = 0;
-                } else {
-                    ++noValidationImprovementAttempts;
-                }
+                if (options.hasValidation) {
+                    Vec1d valid = function(xEigen, FunctionOutput::METRIC_VALID);
+                    if (valid[0] < bestValid) {
+                        bestValid = valid[0];
+                        noValidationImprovementAttempts = 0;
+                    } else {
+                        ++noValidationImprovementAttempts;
+                    }
 
-                if (noValidationImprovementAttempts == options.maxAttempts) {
-                    result.success = true;
-                    break;
+                    if (noValidationImprovementAttempts == options.maxAttempts) {
+                        result.success = true;
+                        break;
+                    }
                 }
             } while (status == GSL_CONTINUE && result.numberIterations < options.maxIterations);
 
