@@ -25,9 +25,12 @@
 #define _PHZ_GPZ_EIGEN_WRAPPER_H
 
 #include <Eigen/Dense>
-#include <memory>
 
 namespace PHZ_GPz {
+
+    // ==============
+    // Shortcut types
+    // ==============
 
     using Mat2d = Eigen::MatrixXd;
     using Mat1d = Eigen::VectorXd;
@@ -39,9 +42,310 @@ namespace PHZ_GPz {
     using MapVec2d = Eigen::Map<Eigen::ArrayXXd>;
     using MapVec1d = Eigen::Map<Eigen::ArrayXd>;
 
-    using uint_t = std::size_t;
+    namespace Implementation {
+        // ====================================
+        // Iterator types to use STL algorithms
+        // ====================================
+
+        template<typename T>
+        class EigenIterator;
+
+        template<typename T>
+        class EigenConstIterator {
+            const T* data_ = nullptr;
+            std::ptrdiff_t index_ = 0;
+
+        public:
+
+            EigenConstIterator(const T& data, std::ptrdiff_t index) : data_(&data), index_(index) {}
+
+            EigenConstIterator() = default;
+            EigenConstIterator(const EigenConstIterator&) = default;
+            EigenConstIterator(EigenConstIterator&&) = default;
+
+            EigenConstIterator(const EigenIterator<T>& iter) : data_(iter.data_), index_(iter.index_) {}
+
+            EigenConstIterator& operator=(const EigenConstIterator&) = default;
+            EigenConstIterator& operator=(EigenConstIterator&&) = default;
+
+            EigenConstIterator operator ++ (int) {
+                EigenConstIterator iter = *this;
+                ++iter;
+                return iter;
+            }
+
+            EigenConstIterator& operator ++ () {
+                ++index_; return *this;
+            }
+
+            EigenConstIterator operator -- (int) {
+                EigenConstIterator iter = *this;
+                --iter;
+                return iter;
+            }
+
+            EigenConstIterator& operator -- () {
+                --index_; return *this;
+            }
+
+            void operator += (int n) {
+                index_ += n;
+            }
+
+            void operator -= (int n) {
+                index_ -= n;
+            }
+
+            EigenConstIterator operator + (int n) const {
+                EigenConstIterator iter = *this;
+                iter += n;
+                return iter;
+            }
+
+            EigenConstIterator operator - (int n) const {
+                EigenConstIterator iter = *this;
+                iter -= n;
+                return iter;
+            }
+
+            std::ptrdiff_t operator - (const EigenConstIterator& iter) const {
+                return index_ - iter.index_;
+            }
+
+            bool operator == (const EigenConstIterator& iter) const {
+                return index_ == iter.index_;
+            }
+
+            bool operator != (const EigenConstIterator& iter) const {
+                return index_ != iter.index_;
+            }
+
+            bool operator < (const EigenConstIterator& iter) const {
+                return index_ < iter.index_;
+            }
+
+            bool operator <= (const EigenConstIterator& iter) const {
+                return index_ <= iter.index_;
+            }
+
+            bool operator > (const EigenConstIterator& iter) const {
+                return index_ > iter.index_;
+            }
+
+            bool operator >= (const EigenConstIterator& iter) const {
+                return index_ >= iter.index_;
+            }
+
+            auto operator * () -> decltype((*data_)[index_]) {
+                return (*data_)[index_];
+            }
+
+            auto operator -> () -> decltype(&(*data_)[index_]) {
+                return &(*data_)(index_);
+            }
+        };
+
+        template<typename T>
+        class EigenIterator {
+            T* data_ = nullptr;
+            std::ptrdiff_t index_ = 0;
+
+            friend class EigenConstIterator<T>;
+
+        public:
+
+            EigenIterator(T& data, std::ptrdiff_t index) : data_(&data), index_(index) {}
+
+            EigenIterator() = default;
+            EigenIterator(const EigenIterator&) = default;
+            EigenIterator(EigenIterator&&) = default;
+
+            EigenIterator& operator=(const EigenIterator&) = default;
+            EigenIterator& operator=(EigenIterator&&) = default;
+
+            EigenIterator operator ++ (int) {
+                EigenIterator iter = *this;
+                ++iter;
+                return iter;
+            }
+
+            EigenIterator& operator ++ () {
+                ++index_; return *this;
+            }
+
+            EigenIterator operator -- (int) {
+                EigenIterator iter = *this;
+                --iter;
+                return iter;
+            }
+
+            EigenIterator& operator -- () {
+                --index_; return *this;
+            }
+
+            void operator += (int n) {
+                index_ += n;
+            }
+
+            void operator -= (int n) {
+                index_ -= n;
+            }
+
+            EigenIterator operator + (int n) const {
+                EigenIterator iter = *this;
+                iter += n;
+                return iter;
+            }
+
+            EigenIterator operator - (int n) const {
+                EigenIterator iter = *this;
+                iter -= n;
+                return iter;
+            }
+
+            std::ptrdiff_t operator - (const EigenIterator& iter) const {
+                return index_ - iter.index_;
+            }
+
+            bool operator == (const EigenIterator& iter) const {
+                return index_ == iter.index_;
+            }
+
+            bool operator != (const EigenIterator& iter) const {
+                return index_ != iter.index_;
+            }
+
+            bool operator < (const EigenIterator& iter) const {
+                return index_ < iter.index_;
+            }
+
+            bool operator <= (const EigenIterator& iter) const {
+                return index_ <= iter.index_;
+            }
+
+            bool operator > (const EigenIterator& iter) const {
+                return index_ > iter.index_;
+            }
+
+            bool operator >= (const EigenIterator& iter) const {
+                return index_ >= iter.index_;
+            }
+
+            auto operator * () -> decltype((*data_)[index_]) {
+                return (*data_)[index_];
+            }
+
+            auto operator -> () -> decltype(&(*data_)[index_]) {
+                return &(*data_)(index_);
+            }
+        };
+    }  // namespace Implementation
 
 }  // namespace PHZ_GPz
 
+namespace std {
+
+    // =========================================
+    // Specialization of std::begin and std::end
+    // =========================================
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenConstIterator<Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        begin(const Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenConstIterator<DataType>(mat, 0);
+    }
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenConstIterator<Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        end(const Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenConstIterator<DataType>(mat, mat.size());
+    }
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenConstIterator<Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        begin(const Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenConstIterator<DataType>(mat, 0);
+    }
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenConstIterator<Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        end(const Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenConstIterator<DataType>(mat, mat.size());
+    }
+
+    template<typename Matrix>
+    PHZ_GPz::Implementation::EigenConstIterator<Eigen::Map<Matrix>>
+        begin(const Eigen::Map<Matrix>& mat) {
+
+        using DataType = Eigen::Map<Matrix>;
+        return PHZ_GPz::Implementation::EigenConstIterator<DataType>(mat, 0);
+    }
+
+    template<typename Matrix>
+    PHZ_GPz::Implementation::EigenConstIterator<Eigen::Map<Matrix>>
+        end(const Eigen::Map<Matrix>& mat) {
+
+        using DataType = Eigen::Map<Matrix>;
+        return PHZ_GPz::Implementation::EigenConstIterator<DataType>(mat, mat.size());
+    }
+
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenIterator<Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        begin(Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, 0);
+    }
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenIterator<Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        end(Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Matrix<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, mat.size());
+    }
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenIterator<Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        begin(Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, 0);
+    }
+
+    template<typename Scalar, int RowsAtCompileType, int ColsAtCompileTime>
+    PHZ_GPz::Implementation::EigenIterator<Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>>
+        end(Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>& mat) {
+
+        using DataType = Eigen::Array<Scalar,RowsAtCompileType,ColsAtCompileTime>;
+        return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, mat.size());
+    }
+
+    template<typename Matrix>
+    PHZ_GPz::Implementation::EigenIterator<Eigen::Map<Matrix>>
+        begin(Eigen::Map<Matrix>& mat) {
+
+        using DataType = Eigen::Map<Matrix>;
+        return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, 0);
+    }
+
+    template<typename Matrix>
+    PHZ_GPz::Implementation::EigenIterator<Eigen::Map<Matrix>>
+        end(Eigen::Map<Matrix>& mat) {
+
+        using DataType = Eigen::Map<Matrix>;
+        return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, mat.size());
+    }
+
+}  // namespace std
 
 #endif
