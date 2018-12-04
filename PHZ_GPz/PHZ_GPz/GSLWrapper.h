@@ -193,7 +193,7 @@ namespace Minimize {
         return result;
     }
 
-}
-}
+}  // namespace Minimize
+}  // namespace PHZ_GPz
 
 #endif

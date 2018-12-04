@@ -53,6 +53,6 @@ namespace PHZ_GPz {
         }
     }
 
-}
+}  // namespace PHZ_GPz
 
 #endif
