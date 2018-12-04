@@ -23,6 +23,8 @@
 
 #include "PHZ_GPz/GPz.h"
 #include "PHZ_GPz/GSLWrapper.h"
+#include <random>
+#include <Eigen/Eigenvalues>
 
 namespace PHZ_GPz {
 
@@ -49,6 +51,8 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
         outputParams[ip] = inputParams.basisFunctionRelevances[i];
         ++ip
     }
+
+    // TODO: include prior mean function
 
     // Pseudo input covariances
     switch (covarianceType_) {
@@ -126,23 +130,6 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
         }
     }
 
-    // Prior mean function
-    switch (priorMean_) {
-        case PriorMeanFunction::ZERO: {
-            break;
-        }
-        case PriorMeanFunction::LINEAR: {
-            outputParams[ip] = inputParams.priorConstant;
-            ++ip;
-
-            for (uint_t j = 0; j < d; ++j) {
-                outputParams[ip] = inputParams.priorLinearCoefficients[j];
-                ++ip;
-            }
-            break;
-        }
-    };
-
     assert(ip == outputParams.size());
 
     return outputParams;
@@ -165,6 +152,8 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
         outputParams.basisFunctionRelevances[i] = inputParams[ip];
         ++ip
     }
+
+    // TODO: include prior mean function
 
     // Pseudo input covariances
     switch (covarianceType_) {
@@ -271,29 +260,14 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
         }
     }
 
-    // Prior mean function
-    switch (priorMean_) {
-        case PriorMeanFunction::ZERO: {
-            break;
-        }
-        case PriorMeanFunction::LINEAR: {
-            priorConstant_ = inputParams[ip];
-            ++ip;
-
-            for (uint_t j = 0; j < d; ++j) {
-                priorLinearCoefficients_[j] = inputParams[ip];
-                ++ip;
-            }
-            break;
-        }
-    };
-
     assert(ip == inputParams.size());
 }
 
 void GPz::resizeHyperParameters_(HyperParameters& params) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
+
+    // TODO: include prior mean function
 
     params.basisFunctionPositions.resize(m,d);
     params.basisFunctionRelevances.resize(m);
@@ -307,8 +281,6 @@ void GPz::resizeHyperParameters_(HyperParameters& params) const {
 
     params.uncertaintyBasisWeights.resize(m);
     params.uncertaintyBasisRelevances.resize(m);
-
-    params.priorLinearCoefficients.resize(d);
 }
 
 
@@ -324,6 +296,8 @@ void GPz::updateNumberParameters_() {
     // Pseudo input relevance
     indexBasisRelevance_ = numberParameters_;
     numberParameters_ += numberBasisFunctions_;
+
+    // TODO: include prior mean function
 
     // Pseudo input covariance
     indexBasisCovariance_ = numberParameters_;
@@ -375,69 +349,276 @@ void GPz::updateNumberParameters_() {
             break;
         }
     }
-
-    // Prior mean function
-    indexPriorMean_ = numberParameters_;
-    switch (priorMean_) {
-        case PriorMeanFunction::ZERO: {
-            break;
-        }
-        case PriorMeanFunction::LINEAR: {
-            numberParameters_ += numberFeatures_ + 1;
-            break;
-        }
-    };
 }
 
 void GPz::resizeArrays_() {
+    const uint_t d = numberFeatures_;
+
     resizeHyperParameters_(parameters_);
     resizeHyperParameters_(derivatives_);
+
+    if (normalizationScheme_ == NormalizationScheme::WHITEN) {
+        featureMean_.resize(d);
+        featureSigma_.resize(d);
+    }
+
+    featurePCAMean_.resize(d);
+    featurePCASigma_.resize(d,d);
+    featurePCABasisVectors_.resize(d,d);
 }
 
 void GPz::reset_() {
     parameters_ = HyperParameters{};
     derivatives_ = HyperParameters{};
+
+    featureMean_.clear();
+    featureSigma_.clear();
+    outputMean_ = 0.0;
+
+    featurePCAMean_.clear();
+    featurePCASigma_.clear();
+    featurePCABasisVectors_.clear();
+}
+
+void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
+    if (normalizationScheme_ == NormalizationScheme::WHITEN) {
+        for (uint_t i = 0; i < n; ++i)
+        for (uint_t j = 0; j < d; ++j) {
+            input(i,j) = (input(i,j) - featureMean_[j])/featureSigma_[j];
+        }
+    }
+
+    // TODO: normalize error too?
+}
+
+void GPz::applyOutputNormalization_(Vec1d& output) const {
+    output -= outputMean_;
+}
+
+void GPz::restoreOutputNormalization_(Vec1d& output) const {
+    output += outputMean_;
+}
+
+void GPz::normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output) {
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
+    if (normalizationScheme_ == NormalizationScheme::WHITEN) {
+        for (uint_t j = 0; j < d; ++j) {
+            // For each feature, compute mean and standard deviation among all
+            // data points and use the values to whiten the data (i.e., mean
+            // of zero and standard deviation of unity).
+
+            // Compute mean (filtering out missing data)
+            featureMean_[j] = 0.0;
+            uint_t count = 0;
+            for (uint_t i = 0; i < n; ++i) {
+                if (!std::isnan(input(i,j))) {
+                    featureMean_[j] += input(i,j);
+                    ++count;
+                }
+            }
+
+            featureMean_[j] /= count;
+
+            // Compute standard deviation (filtering out missing data)
+            featureSigma_[j] = 0.0;
+            for (uint_t i = 0; i < n; ++i) {
+                if (!std::isnan(input(i,j))) {
+                    double d = input(i,j) - featureMean_[j];
+                    featureSigma_[j] += d*d;
+                    ++count;
+                }
+            }
+
+            featureSigma_[j] = sqrt(featureSigma_[j]/count);
+        }
+    }
+
+    // Compute output mean
+    outputMean_ = output.mean();
+
+    applyInputNormalization_(input, inputError_);
+    applyOutputNormalization_(output);
+
+    // TODO: implement fixPsi() for error (see if it is applied to prediciton input too)
+}
+
+void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Vec1d& output) {
+    if (trainValidRatio_ == 1.0) {
+        // No validation set
+        inputTrain_ = input;
+        inputErrorTrain_ = inputError;
+        outputTrain_ = output;
+
+        inputValid_.clear();
+        inputErrorValid_.clear();
+        outputValid_.clear();
+    } else {
+        // Randomly shuffle the data
+        std::mt19937 seed(seedTrainSplit_);
+        std::vector<uint_t> indices(input.cols);
+        std::iota(indices.begin(), indices.end(), 0u);
+        std::shuffle(indices.begin(), indices.end(), seed);
+
+        uint_t numberTrain = round(input.rows()*trainValidRatio_);
+        assert(numberTrain != 0);
+
+        uint_t numberValid = input.rows() - numberTrain;
+
+        // Pick training data from first part of shuffled data
+        inputTrain_.resize(numberTrain, numberFeatures_);
+        if (!inputError.empty()) {
+            inputTrainError_.resize(numberTrain, numberFeatures_);
+        } else {
+            inputTrainError_.clear();
+        }
+        outputTrain_.resize(numberTrain);
+
+        for (uint_t i = 0; i < numberTrain; ++i) {
+            uint_t index = indices[i];
+            outputTrain_[i] = output[index];
+            for (uint_t j = 0; j < numberFeatures_; ++j) {
+                inputTrain_(i,j) = input(index,j);
+                if (!inputError.empty()) {
+                    inputErrorTrain_(i,j) = inputError(index,j);
+                }
+            }
+        }
+
+        // Pick validation data from second part of shuffled data
+        inputValid_.resize(numberValid, numberFeatures_);
+        if (inputError.empty()) {
+            inputValidError_.resize(numberValid, numberFeatures_);
+        } else {
+            inputValidError_.clear();
+        }
+        outputValid_.resize(numberValid);
+
+        for (uint_t i = 0; i < numberValid; ++i) {
+            uint_t index = indices[i + numberTrain];
+            outputValid_[i] = output[index];
+            for (uint_t j = 0; j < numberFeatures_; ++j) {
+                inputValid_(i,j) = input(index,j);
+                if (!inputError.empty()) {
+                    inputErrorValid_(i,j) = inputError(index,j);
+                }
+            }
+        }
+    }
+}
+
+void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
+    normalizeInputs_(input, inputError, output);
+    splitTrainValid_(input, inputError, output);
+}
+
+void GPz::computeTrainingPCA_() {
+    const uint_t d = numberFeatures_;
+    const uint_t n = inputTrain_.rows();
+
+    // Compute mean of each feature (filtering out missing data)
+    for (uint_t j = 0; j < d; ++j) {
+        featurePCAMean_[j] = 0.0;
+        uint_t count = 0;
+        for (uint_t i = 0; i < n; ++i) {
+            if (!std::isnan(inputTrain_(i,j))) {
+                featurePCAMean_[j] += inputTrain_(i,j);
+                ++count;
+            }
+        }
+
+        featurePCAMean_[j] /= count;
+    }
+
+    // Compute corellation matrix (filtering out missing data)
+    for (uint_t j = 0; j < d; ++j)
+    for (uint_t k = j; k < d; ++k) {
+        double sum = 0.0;
+        uint_t count = 0;
+        for (uint_t i = 0; i < n; ++i) {
+            if (!std::isnan(inputTrain_(i,j)) && !std::isnan(inputTrain_(i,k))) {
+                double dj = inputTrain_(i,j) - featurePCAMean_[j];
+                double dk = inputTrain_(i,k) - featurePCAMean_[k];
+                sum += dj*dk;
+                ++count;
+            }
+        }
+
+        featurePCASigma_(j,k) = featurePCASigma_(k,j) = sum*(n/double(count));
+    }
+
+    // Compute eigen-values and eigen-vectors
+    Eigen::EigenSolver<Mat2d> solver(featurePCASigma_);
+    assert(solver.info() == Eigen::Success);
+
+    Vec1d eigenValues = solver.eigenvalues().real();
+    Mat2d eigenVectors = solver.eigenvectors().real();
+
+    eigenValues = sqrt(eigenValues/(n-1.0));
+    featurePCABasisVectors_ = eigenValues.asDiagonal()*eigenVectors.transpose();
+
+    featurePCASigma_ /= n;
 }
 
 void GPz::initializeBasisFunctions_() {
-    // TODO: copy the GPz MatLab implementation for this
+    std::mt19937 seed(seedPositions_);
+    // Uniform distribution between -sqrt(3) and sqrt(3) has mean of zero and standard deviation of unity
+    std::uniform_real_distribution<double> uniform(-sqrt(3.0), sqrt(3.0));
 
+    // Populate the basis function positions with random numbers
     for (uint_t i = 0; i < m; ++i)
-    for (uint_t k = 0; k < d; ++k) {
-        // TODO: set this to better initial value
-        parameters_.basisFunctionPositions(i,k) = 0.0;
+    for (uint_t j = 0; j < d; ++j) {
+        parameters_.basisFunctionPositions(i,j) = uniform(seed);
+    }
+
+    // Apply the PCA de-projection to mimic correlations of the data
+    parameters_.basisFunctionPositions = parameters_.basisFunctionPositions*featurePCABasisVectors_;
+
+    // Add data mean
+    for (uint_t i = 0; i < m; ++i) {
+        parameters_.basisFunctionPositions.row(i) += featurePCAMean_;
     }
 }
 
 void GPz::initializeBasisFunctionRelevances_() {
-    // TODO: copy the GPz MatLab implementation for this
-
-    for (uint_t i = 0; i < m; ++i) {
-        parameters_.basisFunctionRelevances[i] = 1.0;
-    }
+    double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
+    parameters_.basisFunctionRelevances.fill(-outputLogVariance);
 }
 
-Mat2d GPz::initializeCovariancesFillLinear_(const Vec2d& x) {
+Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
     // TODO: placeholder
 
-    return Mat2d{};
+    return input;
 }
 
-Vec1d GPz::initializeCovariancesMakeGamma_(const Vec2d& x) {
+Vec1d GPz::initializeCovariancesMakeGamma_(const Mat2d& input) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
-    const uint_t n = x.rows();
+    const uint_t n = input.rows();
 
-    Mat2d linearInputs = initializeCovariancesFillLinear_(x);
+    Mat2d linearInputs = initializeCovariancesFillLinear_(input);
 
     Vec1d gamma(m);
     double factor = 0.5*pow(m, 1.0/d);
     for (uint_t i = 0; i < m; ++i) {
+        // double meanSquaredDist = 0.0;
+        // for (uint_t j = 0; j < n; ++j)
+        // for (uint_t k = 0; k < d; ++k) {
+        //     double d = parameters_.basisFunctionPositions(i,k) - linearInputs(j,k);
+        //     me += d*d;
+        // }
+
         double meanSquaredDist = 0.0;
-        for (uint_t j = 0; j < n; ++j)
-        for (uint_t k = 0; k < d; ++k) {
-            double d = parameters_.basisFunctionPositions(i,k) - linearInputs(j,k);
-            me += d*d;
+        for (uint_t j = 0; j < n; ++j) {
+            meanSquaredDist +=
+                (parameters_.basisFunctionPositions.row(i) - linearInputs.row(j)).square().sum();
         }
 
         meanSquaredDist /= n;
@@ -448,12 +629,12 @@ Vec1d GPz::initializeCovariancesMakeGamma_(const Vec2d& x) {
     return gamma;
 }
 
-void GPz::initializeCovariances_(const Vec2d& x) {
+void GPz::initializeCovariances_() {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
     // Compute some statistics from training set
-    Vec1d gamma = initializeCovariancesMakeGamma_(x);
+    Vec1d gamma = initializeCovariancesMakeGamma_(inputTrain_);
 
     switch (covarianceType_) {
         case CovarianceType::GLOBAL_LENGTH:
@@ -484,59 +665,34 @@ void GPz::initializeCovariances_(const Vec2d& x) {
 }
 
 void GPz::initializeErrors_() {
-    // TODO: copy the GPz MatLab implementation for this
-
     const uint_t m = numberBasisFunctions_;
+    const uint_t n = inputTrain_.rows();
 
-    switch (outputUncertaintyType_) {
-        case OutputUncertaintyType::UNIFORM: {
-            parameters_.uncertaintyConstant = 1.0;
-            break;
-        }
-        case OutputUncertaintyType::INPUT_DEPENDENT: {
-            parameters_.uncertaintyConstant = 1.0;
-            for (uint_t i = 0; i < m; ++i) {
-                parameters_.uncertaintyBasisWeights[i] = 1.0;
-                parameters_.uncertaintyBasisRelevances[i] = 1.0;
-            }
-            break;
+    double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
+    parameters_.uncertaintyConstant = outputLogVariance;
+
+    if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
+        for (uint_t i = 0; i < m; ++i) {
+            parameters_.uncertaintyBasisWeights[i] = 0.0;
+            parameters_.uncertaintyBasisRelevances[i] = 0.0;
         }
     }
 }
 
-void GPz::initializePriors_() {
-    // TODO: copy the GPz MatLab implementation for this
-
-    const uint_t d = numberFeatures_;
-
-    switch (priorMean_) {
-        case PriorMeanFunction::ZERO: {
-            break;
-        }
-        case PriorMeanFunction::LINEAR: {
-            // Constant
-            parameters_.priorConstant = 0.0;
-            // Weights
-            for (uint_t i = 0; i < d; ++i) {
-                parameters_.priorLinearCoefficients[i] = 1.0;
-            }
-            break;
-        }
-    };
-}
-
-void GPz::initializeFit_(const Vec2d& x, const Vec2d& xe, const Vec1d& y) {
+void GPz::initializeFit_() {
     // Create arrays, matrices, etc.
-    setNumberOfFeatures(x.cols());
+    setNumberOfFeatures(inputTrain_.cols());
     updateNumberParameters_();
     resizeArrays_();
+
+    // Pre-compute some things
+    computeTrainingPCA_();
 
     // Set initial values for hyper-parameters
     initializeBasisFunctions_();
     initializeBasisFunctionRelevances_();
-    initializeCovariances_(x);
+    initializeCovariances_();
     initializeErrors_();
-    initializePriors_();
 }
 
 // =======================
@@ -552,7 +708,7 @@ void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
 // Internal functions: prediction
 // ==============================
 
-Vec1d GPz::predict_(const Vec2d& x, const Vec2d& xe) {
+Vec1d GPz::predict_(const Mat2d& input, const Mat2d& inputError) {
     // TODO: placeholder
 
     return Vec1d{};
@@ -604,25 +760,71 @@ WeightingScheme GPz::getWeightingScheme() const {
     return weightingScheme_;
 }
 
+void GPz::setNormalizationScheme(NormalizationScheme scheme) {
+    normalizationScheme_ = scheme;
+}
+
+NormalizationScheme GPz::getNormalizationScheme() const {
+    return normalizationScheme_;
+}
+
+void GPz::setTrainValidationRatio(double ratio) {
+    trainValidRatio_ = ratio;
+}
+
+double GPz::getTrainValidationRatio() const {
+    return trainValidRatio_;
+}
+
+void GPz::setTrainValidationSplitSeed(uint_t seed) {
+    seedTrainSplit_ = seed;
+}
+
+uint_t getTrainValidationSplitSeed() const {
+    return seedTrainSplit_;
+}
+
+void setInitialPositionSeed(uint_t seed) {
+    seedPositions_ = seed;
+}
+
+uint_t getInitialPositionSeed() const {
+    return seedPositions_;
+}
+
 // =====================
 // Fit/training function
 // =====================
 
-void GPz::fit(const Vec2d& x, const Vec2d& xe, const Vec1d& y) {
+void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Check inputs are consistent
-    assert(xe.empty() || (xe.rows() == x.rows() && xe.cols() == x.cols()));
+    assert(inputError.empty() ||
+        (inputError.rows() == input.rows() && inputError.cols() == input.cols()));
+
+    // Normalize the inputs
+    initializeInputs_(std::move(input), std::move(inputError), std::move(output));
 
     // Setup the fit, initialize arrays, etc.
-    initializeFit_(x, xe, y);
+    initializeFit_();
 
     // Build vector with initial values for hyper-parameter
     Vec1d initialValues = makeParameterArray_(parameters_);
 
     // Use BFGS for minimization
+    Minimize::Options options;
+    options.hasValidation = !inputValid_.empty();
+    // TODO: tweak the BFGS options to copy behavior of original GPz
+
     Minimize::minimizeBFGS(options, initialValues,
         [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
 
-            if (requested != Minimize::FunctionOutput::METRIC_VALID) {
+            Vec1d result;
+
+            if (requested == Minimize::FunctionOutput::METRIC_VALID) {
+                result.resize(1);
+            } else {
+                result.resize(1+numberParameters_);
+
                 // Load new parameters
                 loadParametersArray_(vectorParameters, parameters_);
             }
@@ -630,15 +832,10 @@ void GPz::fit(const Vec2d& x, const Vec2d& xe, const Vec1d& y) {
             // Compute/update the requested quantities
             updateLikelihood_(requested);
 
-            Vec1d result;
-
             if (requested == Minimize::FunctionOutput::METRIC_VALID) {
                 // Return only the log likelihood of the validation set
-                result.resize(1);
                 result[0] = logLikelihoodValid_;
             } else {
-                result.resize(1+numberParameters_);
-
                 if (requested == Minimize::FunctionOutput::ALL ||
                     requested == Minimize::FunctionOutput::METRIC_TRAIN) {
                     // Return log likelihood of the training set
@@ -676,19 +873,29 @@ void GPz::setParameters(const Vec1d& newParameters) {
 // Prediction function
 // ===================
 
-Vec1d GPz::predict(const Vec2d& x, const Vec2d& xe) const {
+Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check input is consistent
-    assert(x.cols() == numberFeatures_);
-    assert(xe.empty() || (xe.rows() == x.rows() && xe.cols() == x.cols()));
+    assert(input.cols() == numberFeatures_);
+    assert(inputError.empty() ||
+        (inputError.rows() == input.rows() && inputError.cols() == input.cols()));
 
     // Check that we have a usable set of parameters to make predictions
-    assert(!parameters_.empty());
+    assert(!parameters_.basisFunctionPositions.empty());
 
-    return predict_(x, xe);
+    // Project input from real space to training space
+    applyInputNormalization_(input, inputError);
+
+    // Make prediction
+    Vec1d output = predict_(input, inputError);
+
+    // De-project output from training space to real space
+    restoreOutputNormalization_(output);
+
+    return output;
 }
 
-Vec1d GPz::predict(const Vec2d& x) const {
-    return predict(x, Vec2d());
+Vec1d GPz::predict(Mat2d input) const {
+    return predict(st::move(input), Mat2d());
 }
 
 }  // namespace PHZ_GPz

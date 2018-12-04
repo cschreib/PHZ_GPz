@@ -84,6 +84,14 @@ enum class WeightingScheme {
     BALANCED
 };
 
+/**
+ * @brief Normalization of input data
+ */
+enum class NormalizationScheme {
+    NATURAL,
+    WHITEN
+}
+
 // =========
 // GPz class
 // =========
@@ -104,7 +112,9 @@ class GPz {
     CovarianceType        covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
     OutputUncertaintyType outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
     WeightingScheme       weightingScheme_ = WeightingScheme::BALANCED;
+    NormalizationScheme   normalizationScheme_ = NormalizationScheme::WHITENED;
     double                balancedWeightingBinSize_ = 0.1;
+    double                trainValidRatio_ = 0.5;
 
     // ==================
     // Indexing variables
@@ -112,6 +122,8 @@ class GPz {
 
     uint_t numberFeatures_ = 0;
     uint_t numberParameters_ = 0;
+
+    // NB: these are just used for debugging purposes
 
     uint_t indexBasisPosition_ = 0;
     uint_t indexBasisRelevance_ = 0;
@@ -126,22 +138,44 @@ class GPz {
     // ================
 
     struct HyperParameters {
-        Mat2d              basisFunctionPositions;
-        Mat2d              basisFunctionPositions;
-        Mat1d              basisFunctionRelevances;
-        std::vector<Mat2d> basisFunctionCovariances;
-        double             uncertaintyConstant = 0.0;
-        Mat1d              uncertaintyBasisWeights;
-        Mat1d              uncertaintyBasisRelevances;
-        double             priorConstant = 0.0;
-        Mat1d              priorLinearCoefficients;
+        Mat2d              basisFunctionPositions;     // GPz MatLab: P
+        Mat1d              basisFunctionRelevances;    // GPz MatLab: lnAlpha
+        std::vector<Mat2d> basisFunctionCovariances;   // GPz MatLab: Gamma
+        double             uncertaintyConstant = 0.0;  // GPz MatLab: b
+        Mat1d              uncertaintyBasisWeights;    // GPz MatLab: v
+        Mat1d              uncertaintyBasisRelevances; // GPz MatLab: lnTau
     };
 
     HyperParameters parameters_, derivatives_;
 
+    // ==========================
+    // Input projection variables
+    // ==========================
+
+    Vec1d  featureMean_;
+    Vec1d  featureSigma_;
+    double outputMean_ = 0.0;
+    Vec1d  featurePCAMean_;
+    Vec1d  featurePCASigma_;
+    Mat2d  featurePCABasisVectors_;
+
+    // ===================
+    // Randomization seeds
+    // ===================
+
+    uint_t seedTrainSplit_ = 42;
+    uint_t seedPositions_ = 55;
+
     // ======================
     // Minimization variables
     // ======================
+
+    Mat2d inputTrain_;
+    Mat2d inputErrorTrain_;
+    Vec1d outputTrain_;
+    Mat2d inputValid_;
+    Mat2d inputErrorValid_;
+    Vec1d outputValid_;
 
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
@@ -166,21 +200,35 @@ class GPz {
 
     void reset_();
 
+    void applyInputNormalization_(Mat2d& input, Mat2d& inputError) const;
+
+    void applyOutputNormalization_(Vec1d& output) const;
+
+    void restoreOutputNormalization_(Vec1d& output) const;
+
+    void normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output);
+
+    void splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Vec1d& output);
+
+    void computeTrainingPCA_();
+
+    void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output);
+
+    void computeTrainingPCA_();
+
     void initializeBasisFunctions_();
 
     void initializeBasisFunctionRelevances_();
 
-    Mat2d initializeCovariancesFillLinear_(const Vec2d& x);
+    Mat2d initializeCovariancesFillLinear_(const Mat2d& x) const;
 
-    Vec1d initializeCovariancesMakeGamma_(const Vec2d& x);
+    Vec1d initializeCovariancesMakeGamma_(const Mat2d& x) const;
 
-    void initializeCovariances_(const Vec2d& x);
+    void initializeCovariances_();
 
     void initializeErrors_();
 
-    void initializePriors_();
-
-    void initializeFit_(const Vec2d& x, const Vec2d& xe, const Vec1d& y);
+    void initializeFit_();
 
     // =======================
     // Internal functions: fit
@@ -192,7 +240,7 @@ class GPz {
     // Internal functions: prediction
     // ==============================
 
-    Vec1d predict_(const Vec2d& x, const Vec2d& xe);
+    Vec1d predict_(const Mat2d& x, const Mat2d& xe);
 
 public:
 
@@ -250,11 +298,27 @@ public:
 
     WeightingScheme getWeightingScheme() const;
 
+    void setNormalizationScheme(NormalizationScheme scheme);
+
+    NormalizationScheme getNormalizationScheme() const;
+
+    void setTrainValidationRatio(double ratio);
+
+    double getTrainValidationRatio() const;
+
+    void setTrainValidationSplitSeed(uint_t seed);
+
+    uint_t getTrainValidationSplitSeed() const;
+
+    void setInitialPositionSeed(uint_t seed);
+
+    uint_t getInitialPositionSeed() const;
+
     // =====================
     // Fit/training function
     // =====================
 
-    void fit(const Vec2d& x, const Vec2d& xe, const Vec1d& y);
+    void fit(Mat2d input, Mat2d inputError, Vec1d output);
 
     // =================================
     // Fit/training result getter/setter
@@ -268,9 +332,9 @@ public:
     // Prediction function
     // ===================
 
-    Vec1d predict(const Vec2d& x, const Vec2d& xe) const;
+    Vec1d predict(Mat2d input, Mat2d inputError) const;
 
-    Vec1d predict(const Vec2d& x) const;
+    Vec1d predict(Mat2d input) const;
 
 };  // End of GPz class
 
