@@ -455,16 +455,20 @@ void GPz::normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output) {
     applyOutputNormalization_(output);
 }
 
-void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Vec1d& output) {
+void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
+    const Vec1d& output, const Vec1d& weight) {
+
     if (trainValidRatio_ == 1.0) {
         // No validation set
         inputTrain_ = input;
         inputErrorTrain_ = inputError;
         outputTrain_ = output;
+        weightTrain_ = weight;
 
         inputValid_.resize(0,0);
         inputErrorValid_.resize(0,0);
         outputValid_.resize(0);
+        weightValid_.resize(0);
     } else {
         // Randomly shuffle the data
         std::mt19937 seed(seedTrainSplit_);
@@ -485,10 +489,12 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Ve
             inputErrorTrain_.resize(0,0);
         }
         outputTrain_.resize(numberTrain);
+        weightTrain_.resize(numberTrain);
 
         for (uint_t i = 0; i < numberTrain; ++i) {
             uint_t index = indices[i];
             outputTrain_[i] = output[index];
+            weightTrain_[i] = weight[index];
             for (uint_t j = 0; j < numberFeatures_; ++j) {
                 inputTrain_(i,j) = input(index,j);
                 if (inputError.rows() != 0) {
@@ -505,10 +511,12 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Ve
             inputErrorValid_.resize(0,0);
         }
         outputValid_.resize(numberValid);
+        weightValid_.resize(numberValid);
 
         for (uint_t i = 0; i < numberValid; ++i) {
             uint_t index = indices[i + numberTrain];
             outputValid_[i] = output[index];
+            weightValid_[i] = weight[index];
             for (uint_t j = 0; j < numberFeatures_; ++j) {
                 inputValid_(i,j) = input(index,j);
                 if (inputError.rows() != 0) {
@@ -519,9 +527,14 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Ve
     }
 }
 
+Vec1d GPz::computeWeights_(const Vec1d& input) const {
+    // TODO: placeholder
+}
+
 void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
     normalizeInputs_(input, inputError, output);
-    splitTrainValid_(input, inputError, output);
+    Vec1d weight = computeWeights_(output);
+    splitTrainValid_(input, inputError, output, weight);
 }
 
 void GPz::computeTrainingPCA_() {

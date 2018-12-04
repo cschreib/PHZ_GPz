@@ -174,9 +174,11 @@ class GPz {
     Mat2d inputTrain_;
     Mat2d inputErrorTrain_;
     Vec1d outputTrain_;
+    Vec1d weightTrain_;
     Mat2d inputValid_;
     Mat2d inputErrorValid_;
     Vec1d outputValid_;
+    Vec1d weightValid_;
 
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
@@ -209,7 +211,10 @@ class GPz {
 
     void normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output);
 
-    void splitTrainValid_(const Mat2d& input, const Mat2d& inputError, const Vec1d& output);
+    void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
+        const Vec1d& output, const Vec1d& weight);
+
+    Vec1d computeWeights_(const Vec1d& input) const;
 
     void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output);
 
