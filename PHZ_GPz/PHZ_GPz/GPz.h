@@ -154,9 +154,10 @@ class GPz {
     // Input projection variables
     // ==========================
 
-    Vec1d  featureMean_;
-    Vec1d  featureSigma_;
-    double outputMean_ = 0.0;
+    Vec1d  featureMean_;       // GPz MatLab: muX
+    Vec1d  featureSigma_;      // GPz MatLab: sdX
+    double outputMean_ = 0.0;  // GPz MatLab: muY
+
     Vec1d  featurePCAMean_;
     Vec1d  featurePCASigma_;
     Mat2d  featurePCABasisVectors_;
@@ -172,14 +173,14 @@ class GPz {
     // Minimization variables
     // ======================
 
-    Mat2d inputTrain_;
-    Mat2d inputErrorTrain_;
-    Vec1d outputTrain_;
-    Vec1d weightTrain_;
-    Mat2d inputValid_;
-    Mat2d inputErrorValid_;
-    Vec1d outputValid_;
-    Vec1d weightValid_;
+    Mat2d inputTrain_;      // GPzMatLab: X[training,:]
+    Mat2d inputErrorTrain_; // GPzMatLab: Psi[training,:]
+    Vec1d outputTrain_;     // GPzMatLab: Y[training,:]
+    Vec1d weightTrain_;     // GPzMatLab: omega[training,:]
+    Mat2d inputValid_;      // GPzMatLab: X[validation,:]
+    Mat2d inputErrorValid_; // GPzMatLab: Psi[validation,:]
+    Vec1d outputValid_;     // GPzMatLab: Y[validation,:]
+    Vec1d weightValid_;     // GPzMatLab: omega[validation,:]
 
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
@@ -215,7 +216,7 @@ class GPz {
     void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         const Vec1d& output, const Vec1d& weight);
 
-    Vec1d computeWeights_(const Vec1d& input) const;
+    Vec1d computeWeights_(const Vec1d& output) const;
 
     void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output);
 
@@ -302,6 +303,10 @@ public:
     void setWeightingScheme(WeightingScheme scheme);
 
     WeightingScheme getWeightingScheme() const;
+
+    void setBalancedWeightingBinSize(double size);
+
+    double getBalancedWeightingBinSize() const;
 
     void setNormalizationScheme(NormalizationScheme scheme);
 

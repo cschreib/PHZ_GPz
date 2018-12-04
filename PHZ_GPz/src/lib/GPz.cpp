@@ -527,8 +527,51 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
     }
 }
 
-Vec1d GPz::computeWeights_(const Vec1d& input) const {
-    // TODO: placeholder
+Vec1d GPz::computeWeights_(const Vec1d& output) const {
+    Vec1d weight;
+
+    switch (weightingScheme_) {
+        case WeightingScheme::NATURAL: {
+            weight.resize(output.rows());
+            weight.fill(1.0);
+            break;
+        }
+        case WeightingScheme::ONE_OVER_ONE_PLUS_OUTPUT: {
+            weight = square(1.0/(1.0 + output));
+            break;
+        }
+        case WeightingScheme::BALANCED: {
+            // Make bins
+            double minValue = output.minCoeff();
+            double maxValue = output.maxCoeff();
+            uint_t numBins = ceil((maxValue - minValue)/balancedWeightingBinSize_);
+
+            Vec1d bins(numBins+1);
+            std::iota(std::begin(bins), std::end(bins), 0.0);
+            bins = bins*balancedWeightingBinSize_ + minValue;
+
+            // Compute histogram of counts in bins
+            uint_t maxCount = 0;
+            weight.resize(output.rows());
+            histogram(output, bins, [&](uint_t index, histogram_iterator begin, histogram_iterator end) {
+                uint_t count = end - begin;
+                for (histogram_iterator iter = begin; iter != end; ++iter) {
+                    weight[*iter] = count;
+                }
+
+                if (count > maxCount) {
+                    maxCount = count;
+                }
+            });
+
+            // Set weight as ~ 1/count and normalize to maximum weight of one
+            weight = maxCount/weight;
+
+            break;
+        }
+    }
+
+    return weight;
 }
 
 void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
@@ -784,6 +827,14 @@ void GPz::setWeightingScheme(WeightingScheme scheme) {
 
 WeightingScheme GPz::getWeightingScheme() const {
     return weightingScheme_;
+}
+
+void GPz::setBalancedWeightingBinSize(double size) {
+    balancedWeightingBinSize_ = size;
+}
+
+double GPz::getBalancedWeightingBinSize() const {
+    return balancedWeightingBinSize_;
 }
 
 void GPz::setNormalizationScheme(NormalizationScheme scheme) {
