@@ -35,7 +35,8 @@ namespace Minimize {
 
     struct Options {
         double initialStep = 0.1;
-        double relativeTolerance = 1e-3;
+        double minimizerTolerance = 1e-3;
+        double gradientTolerance = 1e-3;
         uint_t maxIterations = 1000;
         bool   hasValidation = false;
         uint_t maxValidationAttempts = 5;
@@ -129,7 +130,7 @@ namespace Minimize {
             // Initialize minimizer
             const gsl_multimin_fdfminimizer_type* T = gsl_multimin_fdfminimizer_vector_bfgs2;
             m = gsl_multimin_fdfminimizer_alloc(T, n);
-            gsl_multimin_fdfminimizer_set(m, &mf, x, options.initialStep, options.relativeTolerance);
+            gsl_multimin_fdfminimizer_set(m, &mf, x, options.initialStep, options.minimizerTolerance);
 
             // Minimization loop
             int status;
@@ -147,7 +148,7 @@ namespace Minimize {
                     break;
                 }
 
-                status = gsl_multimin_test_gradient(m->gradient, options.relativeTolerance);
+                status = gsl_multimin_test_gradient(m->gradient, options.gradientTolerance);
                 if (status == GSL_SUCCESS) {
                     // Gradient small enough, local minimum found
                     result.success = true;

@@ -979,6 +979,30 @@ uint_t GPz::getInitialPositionSeed() const {
     return seedPositions_;
 }
 
+void GPz::setOptimizationMaxIterations(uint_t maxIterations) {
+    optimizationMaxIterations_ = maxIterations;
+}
+
+uint_t GPz::getOptimizationMaxIterations() const {
+    return optimizationMaxIterations_;
+}
+
+void GPz::setOptimizationTolerance(double tolerance) {
+    optimizationTolerence_ = tolerance;
+}
+
+uint_t GPz::getOptimizationTolerance() const {
+    return optimizationTolerence_;
+}
+
+void GPz::setOptimizationGradientTolerance(double tolerance) {
+    optimizationGradientTolerence_ = tolerance;
+}
+
+uint_t GPz::getOptimizationGradientTolerance() const {
+    return optimizationGradientTolerence_;
+}
+
 // =====================
 // Fit/training function
 // =====================
@@ -999,8 +1023,10 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
     // Use BFGS for minimization
     Minimize::Options options;
+    options.maxIterations = optimizationMaxIterations_;
     options.hasValidation = inputValid_.rows() != 0;
-    // TODO: tweak the BFGS options to copy behavior of original GPz
+    options.minimizerTolerance = optimizationTolerence_;
+    options.gradientTolerance = optimizationGradientTolerence_;
 
     Minimize::minimizeBFGS(options, initialValues,
         [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {

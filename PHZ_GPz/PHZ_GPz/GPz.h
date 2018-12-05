@@ -199,6 +199,9 @@ class GPz {
     NormalizationScheme   normalizationScheme_ = NormalizationScheme::WHITEN;
     double                balancedWeightingBinSize_ = 0.1;
     double                trainValidRatio_ = 0.5;
+    uint_t                optimizationMaxIterations_ = 200;
+    double                optimizationTolerance_ = 1e-1;
+    double                optimizationGradientTolerance_ = 1e-5;
 
     // ==================
     // Indexing variables
@@ -405,6 +408,18 @@ public:
     void setInitialPositionSeed(uint_t seed);
 
     uint_t getInitialPositionSeed() const;
+
+    void setOptimizationMaxIterations(uint_t maxIterations);
+
+    uint_t getOptimizationMaxIterations() const;
+
+    void setOptimizationTolerance(double tolerance);
+
+    uint_t getOptimizationTolerance() const;
+
+    void setOptimizationGradientTolerance(double tolerance);
+
+    uint_t getOptimizationGradientTolerance() const;
 
     // =====================
     // Fit/training function
