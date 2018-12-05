@@ -531,7 +531,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
     Vec1d weight;
 
     switch (weightingScheme_) {
-        case WeightingScheme::NATURAL: {
+        case WeightingScheme::UNIFORM: {
             weight.resize(output.rows());
             weight.fill(1.0);
             break;

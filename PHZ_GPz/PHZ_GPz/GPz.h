@@ -42,6 +42,20 @@ enum class PriorMeanFunction {
     ZERO, LINEAR
 };
 
+/** \var PHZ_GPz::PriorMeanFunction::ZERO
+ * @brief Assume a prior of zero for data outside of the training coverage.
+ *
+ */
+
+/** \var PHZ_GPz::PriorMeanFunction::LINEAR
+ * @brief Assume a linear prior for data outside of the training coverage (default).
+ *
+ * The prior is a multi-linear function of the input values; the intercept and slope parameters
+ * are marginalized over. This is implemented by introducing additional basis functions to the model
+ * (one plus one per input feature), and allows more faithfull predictions outside of the training
+ * coverage.
+ */
+
 /**
  * @brief Choice of covariance parametrization
  */
@@ -54,6 +68,43 @@ enum class CovarianceType {
     VARIABLE_COVARIANCE // GPVC
 };
 
+/** \var PHZ_GPz::CovarianceType::GLOBAL_LENGTH
+ * @brief Model covariance with a uniform scale length (GPGL).
+ *
+ * Number of parameters is one.
+ */
+
+/** \var PHZ_GPz::CovarianceType::VARIABLE_LENGTH
+ * @brief Model covariance with a scale length for each basis function (GPVL).
+ *
+ * Number of parameters is the number of basis functions.
+ */
+
+/** \var PHZ_GPz::CovarianceType::GLOBAL_DIAGONAL
+ * @brief Model covariance with a uniform scale length for each feature (GPGD).
+ *
+ * Number of parameters is the number of features.
+ */
+
+/** \var PHZ_GPz::CovarianceType::VARIABLE_DIAGONAL
+ * @brief Model covariance with a scale length for each feature and for each basis function (GPVD).
+ *
+ * Number of parameters is the number of basis functions times the number of features.
+ */
+
+/** \var PHZ_GPz::CovarianceType::GLOBAL_COVARIANCE
+ * @brief Model covariance with a uniform covariance matrix (GPGC).
+ *
+ * Number of parameters is d*(d+1)/2 (where d is the number of features).
+ */
+
+/** \var PHZ_GPz::CovarianceType::VARIABLE_COVARIANCE
+ * @brief Model covariance with a covariance matrix for each basis function (GPVC, default).
+ *
+ * Number of parameters is m*d*(d+1)/2 (where d is the number of features, and m is the number of
+ * basis function).
+ */
+
 /**
  * @brief Choice of output noise parametrization
  */
@@ -65,11 +116,12 @@ enum class OutputUncertaintyType {
 /** \var PHZ_GPz::OutputUncertaintyType::UNIFORM
  * @brief Uniform uncertainty
  *
- * The uncertainty on the output is assumed to be uniform, namely, it does not depend on the inputs.
+ * The uncertainty on the output is assumed to be uniform, namely, it is a single value
+ * that does not depend on the inputs.
  */
 
 /** \var PHZ_GPz::OutputUncertaintyType::INPUT_DEPENDENT
- * @brief Input-dependent uncertainty
+ * @brief Input-dependent uncertainty (default).
  *
  * The uncertainty on the output is modeled as a linear combination of basis functions,
  * with weights independent of those used to model the output value itself. This leads to an
@@ -81,10 +133,28 @@ enum class OutputUncertaintyType {
  * @brief Choice of training data weighting scheme
  */
 enum class WeightingScheme {
-    NATURAL,
+    UNIFORM,
     ONE_OVER_ONE_PLUS_OUTPUT,
     BALANCED
 };
+
+/** \var PHZ_GPz::WeightingScheme::UNIFORM
+ * @brief All the training data has the same weight.
+ */
+
+/** \var PHZ_GPz::WeightingScheme::ONE_OVER_ONE_PLUS_OUTPUT
+ * @brief Weight training data by 1/(1+z)^2 (where z is the output value).
+ *
+ * This weighting will minimize the standard photo-z metric Delta_z/(1+z).
+ */
+
+/** \var PHZ_GPz::WeightingScheme::BALANCED
+ * @brief Weight training data uniformly in output space (default).
+ *
+ * This weights training data by '1/counts', where 'counts' is the number of training data points with
+ * similar output value. The similarity criterion can be controlled using setBalancedWeightingBinSize().
+ * This scheme avoids under-weighting the regions of the training set that are under-represented.
+ */
 
 /**
  * @brief Normalization of input data
@@ -93,6 +163,18 @@ enum class NormalizationScheme {
     NATURAL,
     WHITEN
 };
+
+/** \var PHZ_GPz::NormalizationScheme::NATURAL
+ * @brief The input data is not normalized.
+ */
+
+/** \var PHZ_GPz::NormalizationScheme::WHITEN
+ * @brief The input data is whitened (default).
+ *
+ * Whitening is the process of substracting the data mean and dividing by the data standard deviation,
+ * so that the data for each feature has a mean of zero and a standard deviation of unity. This allows
+ * faster convergence of the hyper-parameters without loss of information.
+ */
 
 // =========
 // GPz class
