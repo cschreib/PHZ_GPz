@@ -1093,7 +1093,7 @@ Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
         (inputError.rows() == input.rows() && inputError.cols() == input.cols()));
 
     // Check that we have a usable set of parameters to make predictions
-    assert(!parameters_.basisFunctionPositions.empty());
+    assert(parameters_.basisFunctionPositions.rows() != 0);
 
     // Project input from real space to training space
     applyInputNormalization_(input, inputError);
