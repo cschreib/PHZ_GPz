@@ -948,7 +948,7 @@ uint_t GPz::getNumberOfBasisFunctions() const {
 
 void GPz::setPriorMeanFunction(PriorMeanFunction newFunction) {
     if (newFunction != priorMean_) {
-        assert(newFunction != PriorMeanFunction::LINEAR_PREPROCESS && "not implemented");
+        assert(newFunction != PriorMeanFunction::LINEAR_MARGINALIZE && "not implemented");
 
         priorMean_ = newFunction;
         reset_();
