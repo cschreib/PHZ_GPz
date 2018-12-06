@@ -130,7 +130,7 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
         }
     }
 
-    assert(ip == static_cast<uint_t>(outputParams.size()));
+    assert(ip == static_cast<uint_t>(outputParams.size()) && "bug in parameter array (make)");
 
     return outputParams;
 }
@@ -260,7 +260,7 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
         }
     }
 
-    assert(ip == static_cast<uint_t>(inputParams.size()));
+    assert(ip == static_cast<uint_t>(inputParams.size()) && "bug in parameter array (load)");
 }
 
 void GPz::resizeHyperParameters_(HyperParameters& params) const {
@@ -487,7 +487,7 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         std::shuffle(indices.begin(), indices.end(), seed);
 
         uint_t numberTrain = round(input.rows()*trainValidRatio_);
-        assert(numberTrain != 0);
+        assert(numberTrain != 0 && "cannot have zero training data points");
 
         uint_t numberValid = input.rows() - numberTrain;
 
@@ -627,7 +627,7 @@ void GPz::computeTrainingPCA_() {
 
     // Compute eigen-values and eigen-vectors
     Eigen::EigenSolver<Mat2d> solver(featurePCASigma_);
-    assert(solver.info() == Eigen::Success);
+    assert(solver.info() == Eigen::Success && "could not get eigenvectors of PCA sigma matrix");
 
     Mat1d eigenValues = solver.eigenvalues().real();
     Mat2d eigenVectors = solver.eigenvectors().real();
@@ -874,6 +874,12 @@ void GPz::initializeFit_() {
     initializeErrors_();
 }
 
+bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const {
+    bool noError = inputError.size() == 0;
+    bool errorSameSize = inputError.rows() == input.rows() && inputError.cols() == input.cols();
+    return noError || errorSameSize;
+}
+
 // =======================
 // Internal functions: fit
 // =======================
@@ -1030,8 +1036,7 @@ uint_t GPz::getOptimizationGradientTolerance() const {
 
 void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Check inputs are consistent
-    assert(inputError.rows() == 0 ||
-        (inputError.rows() == input.rows() && inputError.cols() == input.cols()));
+    assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
 
     // Normalize the inputs
     initializeInputs_(std::move(input), std::move(inputError), std::move(output));
@@ -1109,12 +1114,11 @@ void GPz::setParameters(const Vec1d& newParameters) {
 
 Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check input is consistent
-    assert(input.cols() == numberFeatures_);
-    assert(inputError.rows() == 0 ||
-        (inputError.rows() == input.rows() && inputError.cols() == input.cols()));
+    assert(input.cols() == numberFeatures_ && "input has incorrect dimension");
+    assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
 
     // Check that we have a usable set of parameters to make predictions
-    assert(parameters_.basisFunctionPositions.rows() != 0);
+    assert(parameters_.basisFunctionPositions.rows() != 0 && "model is not initialized");
 
     // Project input from real space to training space
     applyInputNormalization_(input, inputError);

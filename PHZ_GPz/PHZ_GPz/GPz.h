@@ -332,6 +332,8 @@ class GPz {
 
     void initializeFit_();
 
+    bool checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const;
+
     // =======================
     // Internal functions: fit
     // =======================
@@ -342,7 +344,7 @@ class GPz {
     // Internal functions: prediction
     // ==============================
 
-    Vec1d predict_(const Mat2d& x, const Mat2d& xe) const;
+    Vec1d predict_(const Mat2d& input, const Mat2d& inputError) const;
 
 public:
 
