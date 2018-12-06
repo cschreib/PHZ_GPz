@@ -39,7 +39,9 @@ namespace PHZ_GPz {
  * @brief Choice of prior mean function
  */
 enum class PriorMeanFunction {
-    ZERO, LINEAR
+    ZERO,
+    LINEAR_PREPROCESS,
+    LINEAR_MARGINALIZE
 };
 
 /** \var PHZ_GPz::PriorMeanFunction::ZERO
@@ -47,12 +49,21 @@ enum class PriorMeanFunction {
  *
  */
 
-/** \var PHZ_GPz::PriorMeanFunction::LINEAR
+/** \var PHZ_GPz::PriorMeanFunction::LINEAR_PREPROCESS
  * @brief Assume a linear prior for data outside of the training coverage (default).
  *
  * The prior is a multi-linear function of the input values; the intercept and slope parameters
+ * are fit to the data as a pre-processing step before the training, and the best-fit is subtracted
+ * from the target outputs for training. This is less formally accurate than marginalizing over the
+ * fit coefficients.
+ */
+
+/** \var PHZ_GPz::PriorMeanFunction::LINEAR_MARGINALIZE
+ * @brief Assume a linear prior for data outside of the training coverage.
+ *
+ * The prior is a multi-linear function of the input values; the intercept and slope parameters
  * are marginalized over. This is implemented by introducing additional basis functions to the model
- * (one plus one per input feature), and allows more faithfull predictions outside of the training
+ * (one plus one per input feature), and allows the most faithfull predictions outside of the training
  * coverage.
  */
 
@@ -192,7 +203,7 @@ class GPz {
     // =======================
 
     uint_t                numberBasisFunctions_ = 100;
-    PriorMeanFunction     priorMean_ = PriorMeanFunction::LINEAR;
+    PriorMeanFunction     priorMean_ = PriorMeanFunction::LINEAR_PREPROCESS;
     CovarianceType        covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
     OutputUncertaintyType outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
     WeightingScheme       weightingScheme_ = WeightingScheme::BALANCED;
