@@ -130,7 +130,7 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
         }
     }
 
-    assert(ip == outputParams.size());
+    assert(ip == static_cast<uint_t>(outputParams.size()));
 
     return outputParams;
 }
@@ -260,7 +260,7 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
         }
     }
 
-    assert(ip == inputParams.size());
+    assert(ip == static_cast<uint_t>(outputParams.size()));
 }
 
 void GPz::resizeHyperParameters_(HyperParameters& params) const {
