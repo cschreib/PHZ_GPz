@@ -879,7 +879,23 @@ void GPz::initializeFit_() {
 // =======================
 
 void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
-    // TODO: placeholder
+    if (requested == Minimize::FunctionOutput::ALL ||
+        requested == Minimize::FunctionOutput::METRIC_TRAIN) {
+        // TODO: placeholder
+        logLikelihood_ = 0.0;
+    }
+
+    if (requested == Minimize::FunctionOutput::ALL ||
+        requested == Minimize::FunctionOutput::DERIVATIVES) {
+        // TODO: placeholder
+        derivatives_.uncertaintyConstant = 0.0;
+    }
+
+    if (requested == Minimize::FunctionOutput::METRIC_VALID) {
+        // TODO: placeholder
+        // Vec1d predictOutput = predict_(inputTrain_, inputErrorTrain_);
+        logLikelihoodValid_ = 0.0;
+    }
 }
 
 
@@ -888,7 +904,10 @@ void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
 // ==============================
 
 Vec1d GPz::predict_(const Mat2d& input, const Mat2d& inputError) const {
+    Vec1d prediction(input.rows());
+
     // TODO: placeholder
+    prediction = input.colwise().sum() + inputError.colwise().sum();
 
     return Vec1d{};
 }
