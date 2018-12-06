@@ -40,6 +40,7 @@ namespace PHZ_GPz {
  */
 enum class PriorMeanFunction {
     ZERO,
+    CONSTANT_PREPROCESS,
     LINEAR_PREPROCESS,
     LINEAR_MARGINALIZE
 };
@@ -49,17 +50,25 @@ enum class PriorMeanFunction {
  *
  */
 
+/** \var PHZ_GPz::PriorMeanFunction::CONSTANT_PREPROCESS
+ * @brief Assume a constant prior for data outside of the training coverage.
+ *
+ * The prior is a constant, independent of the input values, computed as the mean of the data
+ * as a pre-processing step before the training, and this value is subtracted from the target
+ * outputs for training.
+ */
+
 /** \var PHZ_GPz::PriorMeanFunction::LINEAR_PREPROCESS
  * @brief Assume a linear prior for data outside of the training coverage (default).
  *
  * The prior is a multi-linear function of the input values; the intercept and slope parameters
  * are fit to the data as a pre-processing step before the training, and the best-fit is subtracted
  * from the target outputs for training. This is less formally accurate than marginalizing over the
- * fit coefficients.
+ * fit coefficients (LINEAR_MARGINALIZE).
  */
 
 /** \var PHZ_GPz::PriorMeanFunction::LINEAR_MARGINALIZE
- * @brief Assume a linear prior for data outside of the training coverage.
+ * @brief Assume a linear prior for data outside of the training coverage (not yet implemented).
  *
  * The prior is a multi-linear function of the input values; the intercept and slope parameters
  * are marginalized over. This is implemented by introducing additional basis functions to the model

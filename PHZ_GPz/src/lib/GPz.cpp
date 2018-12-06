@@ -415,11 +415,19 @@ void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
 }
 
 void GPz::applyOutputNormalization_(Vec1d& output) const {
-    output -= outputMean_;
+    if (priorMean_ == PriorMeanFunction::LINEAR_PREPROCESS) {
+        // TODO
+    } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
+        output -= outputMean_;
+    }
 }
 
 void GPz::restoreOutputNormalization_(Vec1d& output) const {
-    output += outputMean_;
+    if (priorMean_ == PriorMeanFunction::LINEAR_PREPROCESS) {
+        // TODO
+    } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
+        output += outputMean_;
+    }
 }
 
 void GPz::normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output) {
@@ -459,7 +467,11 @@ void GPz::normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output) {
     }
 
     // Compute output mean
-    outputMean_ = output.mean();
+    if (priorMean_ == PriorMeanFunction::LINEAR_PREPROCESS) {
+        // TODO
+    } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
+        outputMean_ = output.mean();
+    }
 
     applyInputNormalization_(input, inputError);
     applyOutputNormalization_(output);
