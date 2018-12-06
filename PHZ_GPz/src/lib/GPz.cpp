@@ -563,7 +563,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
             // Compute histogram of counts in bins
             uint_t maxCount = 0;
             weight.resize(output.rows());
-            histogram(output, bins, [&](uint_t index, histogram_iterator begin, histogram_iterator end) {
+            histogram(output, bins, [&](uint_t /*index*/, histogram_iterator begin, histogram_iterator end) {
                 uint_t count = end - begin;
                 for (histogram_iterator iter = begin; iter != end; ++iter) {
                     weight[*iter] = count;
