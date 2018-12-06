@@ -260,7 +260,7 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
         }
     }
 
-    assert(ip == static_cast<uint_t>(outputParams.size()));
+    assert(ip == static_cast<uint_t>(inputParams.size()));
 }
 
 void GPz::resizeHyperParameters_(HyperParameters& params) const {
