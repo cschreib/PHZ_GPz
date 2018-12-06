@@ -897,13 +897,13 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 // =======================
 
 void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
-    if (requested == Minimize::FunctionOutput::ALL ||
+    if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
         requested == Minimize::FunctionOutput::METRIC_TRAIN) {
         // TODO: placeholder
         logLikelihood_ = 0.0;
     }
 
-    if (requested == Minimize::FunctionOutput::ALL ||
+    if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
         requested == Minimize::FunctionOutput::DERIVATIVES) {
         // TODO: placeholder
         derivatives_.uncertaintyConstant = 0.0;

@@ -43,14 +43,14 @@ namespace Minimize {
     };
 
     struct Result {
-        bool success = false;
-        Vec1d parameters;
+        bool   success = false;
+        Vec1d  parameters;
         double metric = std::numeric_limits<double>::quiet_NaN();
         uint_t numberIterations = 0;
     };
 
     enum class FunctionOutput {
-        METRIC_TRAIN, METRIC_VALID, DERIVATIVES, ALL
+        METRIC_TRAIN, METRIC_VALID, DERIVATIVES_TRAIN, ALL_TRAIN
     };
 
     template<typename F>
@@ -89,7 +89,7 @@ namespace Minimize {
             }
 
             functionPointer fp = reinterpret_cast<functionPointer>(data);
-            Vec1d output = (*fp)(xEigen, FunctionOutput::DERIVATIVES);
+            Vec1d output = (*fp)(xEigen, FunctionOutput::DERIVATIVES_TRAIN);
 
             for (uint_t i = 0; i < tn; ++i) {
                 gsl_vector_set(derivGSL, i, output[i+1]);
@@ -104,7 +104,7 @@ namespace Minimize {
             }
 
             functionPointer fp = reinterpret_cast<functionPointer>(data);
-            Vec1d output = (*fp)(xEigen, FunctionOutput::ALL);
+            Vec1d output = (*fp)(xEigen, FunctionOutput::ALL_TRAIN);
 
             *metric = output[0];
 
