@@ -547,7 +547,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
             break;
         }
         case WeightingScheme::ONE_OVER_ONE_PLUS_OUTPUT: {
-            weight = square(1.0/(1.0 + output));
+            weight = pow(1.0/(1.0 + output), 2);
             break;
         }
         case WeightingScheme::BALANCED: {
