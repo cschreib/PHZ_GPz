@@ -698,7 +698,7 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
         }
 
         // See if this combination of missing bands has already been cached
-        predictorCache* cache = nullptr;
+        CacheElement* cache = nullptr;
         for (auto& cacheItem : predictorCache) {
             bool match = true;
             for (uint_t j = 0; j < d; ++j) {
@@ -739,7 +739,7 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
             }
 
             // Compute Cholesky decomposition of sigma(observed,observed)
-            Eigen::LDLT cholesky(sigmaObserved);
+            Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
 
             // Compute predictor by solving for sigma(observed,missing)
             CacheElement newCache;
@@ -761,7 +761,7 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
         }
 
         // Fill in missing data
-        Mat1d filled = observed*cache.predictor;
+        Mat1d filled = observed*cache->predictor;
         for (uint_t j = 0, k = 0; j < d; ++j) {
             if (missing[j]) {
                 input(i,j) = filled[k] + featurePCAMean_[j];
@@ -988,19 +988,19 @@ uint_t GPz::getOptimizationMaxIterations() const {
 }
 
 void GPz::setOptimizationTolerance(double tolerance) {
-    optimizationTolerence_ = tolerance;
+    optimizationTolerance_ = tolerance;
 }
 
 uint_t GPz::getOptimizationTolerance() const {
-    return optimizationTolerence_;
+    return optimizationTolerance_;
 }
 
 void GPz::setOptimizationGradientTolerance(double tolerance) {
-    optimizationGradientTolerence_ = tolerance;
+    optimizationGradientTolerance_ = tolerance;
 }
 
 uint_t GPz::getOptimizationGradientTolerance() const {
-    return optimizationGradientTolerence_;
+    return optimizationGradientTolerance_;
 }
 
 // =====================
@@ -1025,8 +1025,8 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     Minimize::Options options;
     options.maxIterations = optimizationMaxIterations_;
     options.hasValidation = inputValid_.rows() != 0;
-    options.minimizerTolerance = optimizationTolerence_;
-    options.gradientTolerance = optimizationGradientTolerence_;
+    options.minimizerTolerance = optimizationTolerance_;
+    options.gradientTolerance = optimizationGradientTolerance_;
 
     Minimize::minimizeBFGS(options, initialValues,
         [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
