@@ -381,6 +381,8 @@ void GPz::reset_() {
     featurePCASigma_.resize(0,0);
     featurePCABasisVectors_.resize(0,0);
 
+    decorrelationCoefficients_.resize(0);
+
     inputTrain_.resize(0,0);
     inputErrorTrain_.resize(0,0);
     outputTrain_.resize(0);
@@ -416,67 +418,183 @@ void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
     }
 }
 
-void GPz::applyOutputNormalization_(Vec1d& output) const {
+void GPz::applyOutputNormalization_(const Mat2d& input, Vec1d& output) const {
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
+    // TODO: not finalized implementation yet
     if (priorMean_ == PriorMeanFunction::LINEAR_PREPROCESS) {
-        // TODO
+        for (uint_t i = 0; i < n; ++i) {
+            double pred = decorrelationCoefficients_[d];
+            for (uint_t j = 0; j < d; ++j) {
+                // TODO: fix this for missing variables
+                pred += input(i,j)*decorrelationCoefficients_[j];
+            }
+            output[i] -= pred;
+        }
     } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
         output -= outputMean_;
     }
 }
 
-void GPz::restoreOutputNormalization_(Vec1d& output) const {
+void GPz::restoreOutputNormalization_(const Mat2d& input, Vec1d& output) const {
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
+    // TODO: not finalized implementation yet
     if (priorMean_ == PriorMeanFunction::LINEAR_PREPROCESS) {
-        // TODO
+        for (uint_t i = 0; i < n; ++i) {
+            double pred = decorrelationCoefficients_[d];
+            for (uint_t j = 0; j < d; ++j) {
+                // TODO: fix this for missing variables
+                pred += input(i,j)*decorrelationCoefficients_[j];
+            }
+            output[i] += pred;
+        }
     } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
         output += outputMean_;
     }
 }
 
-void GPz::normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output) {
+void GPz::computeWhitening_(const Mat2d& input) {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
-    if (normalizationScheme_ == NormalizationScheme::WHITEN) {
-        for (uint_t j = 0; j < d; ++j) {
-            // For each feature, compute mean and standard deviation among all
-            // data points and use the values to whiten the data (i.e., mean
-            // of zero and standard deviation of unity).
+    for (uint_t j = 0; j < d; ++j) {
+        // For each feature, compute mean and standard deviation among all
+        // data points and use the values to whiten the data (i.e., mean
+        // of zero and standard deviation of unity).
 
-            // Compute mean (filtering out missing data)
-            featureMean_[j] = 0.0;
-            uint_t count = 0;
-            for (uint_t i = 0; i < n; ++i) {
-                if (!std::isnan(input(i,j))) {
-                    featureMean_[j] += input(i,j);
-                    ++count;
-                }
+        // Compute mean (filtering out missing data)
+        featureMean_[j] = 0.0;
+        uint_t count = 0;
+        for (uint_t i = 0; i < n; ++i) {
+            if (!std::isnan(input(i,j))) {
+                featureMean_[j] += input(i,j);
+                ++count;
             }
-
-            featureMean_[j] /= count;
-
-            // Compute standard deviation (filtering out missing data)
-            featureSigma_[j] = 0.0;
-            for (uint_t i = 0; i < n; ++i) {
-                if (!std::isnan(input(i,j))) {
-                    double d = input(i,j) - featureMean_[j];
-                    featureSigma_[j] += d*d;
-                    ++count;
-                }
-            }
-
-            featureSigma_[j] = sqrt(featureSigma_[j]/count);
         }
+
+        featureMean_[j] /= count;
+
+        // Compute standard deviation (filtering out missing data)
+        featureSigma_[j] = 0.0;
+        for (uint_t i = 0; i < n; ++i) {
+            if (!std::isnan(input(i,j))) {
+                double d = input(i,j) - featureMean_[j];
+                featureSigma_[j] += d*d;
+                ++count;
+            }
+        }
+
+        featureSigma_[j] = sqrt(featureSigma_[j]/count);
+    }
+}
+
+void GPz::computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputError,
+    const Vec1d& output, const Vec1d& weight) {
+
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
+    // Fit output as linear combination of inputs plus constant
+
+    // Compute model matrix and vector
+    Mat2d modelInner(d+1, d+1);
+    Mat1d modelObs(d+1);
+
+    // X terms
+    for (uint_t i = 0; i < d; ++i) {
+        // Matrix
+        for (uint_t j = i; j < d; ++j) {
+            double sum = 0.0;
+            for (uint_t k = 0; k < n; ++k) {
+                // Skip missing data
+                if (std::isnan(input(k,i) || std::isnan(input(k,j)))) continue;
+
+                double temp = input(k,i)*input(k,j)*weight[k];
+                if (inputError.rows() != 0) {
+                    temp /= inputError(k,i)*inputError(k,j);
+                }
+
+                sum += temp;
+            }
+
+            modelInner(j,i) = modelInner(i,j) = sum;
+        }
+
+        // Vector
+        double sum = 0.0;
+        for (uint_t k = 0; k < n; ++k) {
+            // Skip missing data
+            if (std::isnan(input(k,i))) continue;
+
+            double temp = input(k,i)*output[k]*weight[k];
+            if (inputError.rows() != 0) {
+                temp /= inputError(k,i)*inputError(k,i);
+            }
+
+            sum += temp;
+        }
+
+        modelObs[i] = sum;
     }
 
-    // Compute output mean
+    // Constant term
+    {
+        uint_t i = d;
+
+        // Matrix
+        // Constant x X
+        for (uint_t j = 0; j < d; ++j) {
+            double sum = 0.0;
+            for (uint_t k = 0; k < n; ++k) {
+                // Skip missing data
+                if (std::isnan(input(k,j))) continue;
+
+                double temp = input(k,j)*weight[k];
+                if (inputError.rows() != 0) {
+                    temp /= inputError(k,j);
+                }
+
+                sum += temp;
+            }
+
+            modelInner(j,i) = modelInner(i,j) = sum;
+        }
+
+        // Constant x Constant
+        modelInner(d,d) = weight.sum();
+
+        // Vector
+        modelObs[d] = (output*weight).sum();
+    }
+
+    // Compute Cholesky decomposition of model matrix
+    Eigen::LDLT<Mat2d> cholesky(modelInner);
+
+    // Compute best fit linear coefficients
+    decorrelationCoefficients_ = cholesky.solve(modelObs);
+}
+
+void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output, const Vec1d& weight) {
+    // Inputs
+
+    if (normalizationScheme_ == NormalizationScheme::WHITEN) {
+        computeWhitening_(input);
+    }
+
+    applyInputNormalization_(input, inputError);
+
+    // Outputs
+
     if (priorMean_ == PriorMeanFunction::LINEAR_PREPROCESS) {
-        // TODO
+        computeLinearDecorrelation_(input, inputError, output, weight);
     } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
         outputMean_ = output.mean();
     }
 
-    applyInputNormalization_(input, inputError);
-    applyOutputNormalization_(output);
+    applyOutputNormalization_(input, output);
 }
 
 void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
@@ -599,8 +717,8 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 }
 
 void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
-    normalizeInputs_(input, inputError, output);
     Vec1d weight = computeWeights_(output);
+    normalizeTrainingInputs_(input, inputError, output, weight);
     splitTrainValid_(input, inputError, output, weight);
 }
 
@@ -989,6 +1107,7 @@ uint_t GPz::getNumberOfBasisFunctions() const {
 void GPz::setPriorMeanFunction(PriorMeanFunction newFunction) {
     if (newFunction != priorMean_) {
         assert(newFunction != PriorMeanFunction::LINEAR_MARGINALIZE && "not implemented");
+        assert(newFunction != PriorMeanFunction::LINEAR_PREPROCESS  && "not implemented");
 
         priorMean_ = newFunction;
         reset_();
@@ -1179,7 +1298,7 @@ Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     Vec1d output = predict_(input, inputError);
 
     // De-project output from training space to real space
-    restoreOutputNormalization_(output);
+    restoreOutputNormalization_(input, output);
 
     return output;
 }

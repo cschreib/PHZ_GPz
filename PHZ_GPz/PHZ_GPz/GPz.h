@@ -51,7 +51,7 @@ enum class PriorMeanFunction {
  */
 
 /** \var PHZ_GPz::PriorMeanFunction::CONSTANT_PREPROCESS
- * @brief Assume a constant prior for data outside of the training coverage.
+ * @brief Assume a constant prior for data outside of the training coverage (default).
  *
  * The prior is a constant, independent of the input values, computed as the mean of the data
  * as a pre-processing step before the training, and this value is subtracted from the target
@@ -59,7 +59,7 @@ enum class PriorMeanFunction {
  */
 
 /** \var PHZ_GPz::PriorMeanFunction::LINEAR_PREPROCESS
- * @brief Assume a linear prior for data outside of the training coverage (default).
+ * @brief Assume a linear prior for data outside of the training coverage (not yet implemented).
  *
  * The prior is a multi-linear function of the input values; the intercept and slope parameters
  * are fit to the data as a pre-processing step before the training, and the best-fit is subtracted
@@ -212,7 +212,7 @@ class GPz {
     // =======================
 
     uint_t                numberBasisFunctions_ = 100;
-    PriorMeanFunction     priorMean_ = PriorMeanFunction::LINEAR_PREPROCESS;
+    PriorMeanFunction     priorMean_ = PriorMeanFunction::CONSTANT_PREPROCESS;
     CovarianceType        covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
     OutputUncertaintyType outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
     WeightingScheme       weightingScheme_ = WeightingScheme::BALANCED;
@@ -274,6 +274,8 @@ class GPz {
     Vec1d  featurePCASigma_;
     Mat2d  featurePCABasisVectors_;
 
+    Mat1d  decorrelationCoefficients_;
+
     // ===================
     // Randomization seeds
     // ===================
@@ -319,11 +321,16 @@ class GPz {
 
     void applyInputNormalization_(Mat2d& input, Mat2d& inputError) const;
 
-    void applyOutputNormalization_(Vec1d& output) const;
+    void applyOutputNormalization_(const Mat2d& input, Vec1d& output) const;
 
-    void restoreOutputNormalization_(Vec1d& output) const;
+    void restoreOutputNormalization_(const Mat2d& input, Vec1d& output) const;
 
-    void normalizeInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output);
+    void computeWhitening_(const Mat2d& input);
+
+    void computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputError,
+        const Vec1d& output, const Vec1d& weight);
+
+    void normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output, const Vec1d& weight);
 
     void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         const Vec1d& output, const Vec1d& weight);
