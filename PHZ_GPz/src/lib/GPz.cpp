@@ -1089,6 +1089,17 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 // Internal functions: fit
 // =======================
 
+Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError) const {
+    const uint_t m = numberBasisFunctions_;
+    const uint_t n = input.rows();
+
+    Mat2d funcs(n,m);
+
+    // TODO: placeholder
+
+    return funcs;
+}
+
 void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
     if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
         requested == Minimize::FunctionOutput::METRIC_TRAIN) {
