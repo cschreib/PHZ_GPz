@@ -904,7 +904,7 @@ void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
     }
 
     if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
-        requested == Minimize::FunctionOutput::DERIVATIVES) {
+        requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
         // TODO: placeholder
         derivatives_.uncertaintyConstant = 0.0;
     }
@@ -1087,14 +1087,14 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
                 // Return only the log likelihood of the validation set
                 result[0] = logLikelihoodValid_;
             } else {
-                if (requested == Minimize::FunctionOutput::ALL ||
+                if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
                     requested == Minimize::FunctionOutput::METRIC_TRAIN) {
                     // Return log likelihood of the training set
                     result[0] = logLikelihood_;
                 }
 
-                if (requested == Minimize::FunctionOutput::ALL ||
-                    requested == Minimize::FunctionOutput::DERIVATIVES) {
+                if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
+                    requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
                     // Return derivatives of log likelihood with respect to hyper-parameters
                     Vec1d vectorDerivatives = makeParameterArray_(derivatives_);
                     for (uint_t i = 0; i < numberParameters_; ++i) {
