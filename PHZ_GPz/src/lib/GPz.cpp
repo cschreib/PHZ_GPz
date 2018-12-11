@@ -52,8 +52,6 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
         ++ip;
     }
 
-    // TODO: include prior mean function
-
     // Pseudo input covariances
     switch (covarianceType_) {
         case CovarianceType::GLOBAL_LENGTH: {
@@ -152,8 +150,6 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
         outputParams.basisFunctionRelevances[i] = inputParams[ip];
         ++ip;
     }
-
-    // TODO: include prior mean function
 
     // Pseudo input covariances
     switch (covarianceType_) {
@@ -267,8 +263,6 @@ void GPz::resizeHyperParameters_(HyperParameters& params) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
-    // TODO: include prior mean function
-
     params.basisFunctionPositions.resize(m,d);
     params.basisFunctionRelevances.resize(m);
     params.basisFunctionCovariances.resize(m);
@@ -296,8 +290,6 @@ void GPz::updateNumberParameters_() {
     // Pseudo input relevance
     indexBasisRelevance_ = numberParameters_;
     numberParameters_ += numberBasisFunctions_;
-
-    // TODO: include prior mean function
 
     // Pseudo input covariance
     indexBasisCovariance_ = numberParameters_;
