@@ -338,9 +338,13 @@ class GPz {
 
     void initializeBasisFunctionRelevances_();
 
-    Mat2d initializeCovariancesFillLinear_(Mat2d x) const;
+    void buildLinearPredictorCache_(const Mat2d& input);
 
-    Vec1d initializeCovariancesMakeGamma_(const Mat2d& x) const;
+    const FillinCacheElement* findFillinCacheElement_(const std::vector<bool>& missing) const;
+
+    Mat2d initializeCovariancesFillLinear_(Mat2d input) const;
+
+    Vec1d initializeCovariancesMakeGamma_(const Mat2d& input) const;
 
     void initializeCovariances_();
 
