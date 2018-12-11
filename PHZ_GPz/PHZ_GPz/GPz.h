@@ -255,13 +255,20 @@ class GPz {
 
     HyperParameters parameters_, derivatives_;
 
-    // ==========================
-    // Input projection variables
-    // ==========================
+    // ====================
+    // Projection variables
+    // ====================
 
     Vec1d  featureMean_;       // GPz MatLab: muX
     Vec1d  featureSigma_;      // GPz MatLab: sdX
     double outputMean_ = 0.0;  // GPz MatLab: muY
+
+    struct FillinCacheElement {
+        std::vector<bool> missing;
+        Mat2d predictor;
+    };
+
+    std::vector<FillinCacheElement> fillinPredictorCache_;
 
     Vec1d  featurePCAMean_;
     Vec1d  featurePCASigma_;
