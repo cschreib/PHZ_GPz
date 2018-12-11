@@ -36,6 +36,7 @@ namespace PHZ_GPz {
     using Mat1d = Eigen::VectorXd;
     using Vec2d = Eigen::ArrayXXd;
     using Vec1d = Eigen::ArrayXd;
+    using Vec1i = Eigen::ArrayXi;
 
     using MapMat2d = Eigen::Map<Eigen::MatrixXd>;
     using MapMat1d = Eigen::Map<Eigen::VectorXd>;

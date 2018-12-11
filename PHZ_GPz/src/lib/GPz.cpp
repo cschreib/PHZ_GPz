@@ -375,7 +375,7 @@ void GPz::reset_() {
     featureSigma_.resize(0);
     outputMean_ = 0.0;
 
-    fillinPredictorCache_.clear();
+    missingCache_.clear();
 
     featurePCAMean_.resize(0);
     featurePCASigma_.resize(0,0);
@@ -418,7 +418,7 @@ void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
     }
 }
 
-void GPz::applyOutputNormalization_(const Mat2d& input, Vec1d& output) const {
+void GPz::applyOutputNormalization_(const Mat2d& input, const Vec1i& /* missing */, Vec1d& output) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -437,7 +437,7 @@ void GPz::applyOutputNormalization_(const Mat2d& input, Vec1d& output) const {
     }
 }
 
-void GPz::restoreOutputNormalization_(const Mat2d& input, Vec1d& output) const {
+void GPz::restoreOutputNormalization_(const Mat2d& input, const Vec1i& /* missing */, Vec1d& output) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -577,7 +577,9 @@ void GPz::computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputErro
     decorrelationCoefficients_ = cholesky.solve(modelObs);
 }
 
-void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output, const Vec1d& weight) {
+void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i& missing,
+    Vec1d& output, const Vec1d& weight) {
+
     // Inputs
 
     if (normalizationScheme_ == NormalizationScheme::WHITEN) {
@@ -594,7 +596,7 @@ void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, Vec1d& outpu
         outputMean_ = output.mean();
     }
 
-    applyOutputNormalization_(input, output);
+    applyOutputNormalization_(input, missing, output);
 }
 
 void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
@@ -718,8 +720,16 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 
 void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
     Vec1d weight = computeWeights_(output);
-    normalizeTrainingInputs_(input, inputError, output, weight);
+
     splitTrainValid_(input, inputError, output, weight);
+    buildMissingCache_(inputTrain_);
+    missingTrain_ = findBestMissingID_(inputTrain_);
+    missingValid_ = findBestMissingID_(inputValid_);
+
+    normalizeTrainingInputs_(inputTrain_, inputErrorTrain_, missingTrain_, outputTrain_, weightTrain_);
+
+    applyInputNormalization_(inputValid_, inputErrorValid_);
+    applyOutputNormalization_(inputValid_, missingValid_, outputValid_);
 }
 
 void GPz::computeTrainingPCA_() {
@@ -799,13 +809,12 @@ void GPz::initializeBasisFunctionRelevances_() {
     parameters_.basisFunctionRelevances.fill(-outputLogVariance);
 }
 
-void GPz::buildLinearPredictorCache_(const Mat2d& input) {
+void GPz::buildMissingCache_(const Mat2d& input) {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
-    // Cache system to save linear prediction coefficient for each combination of
-    // observed and missing bands so it does not have to be re-computed for
-    // each element of the training set.
+    // Cache system to save data related to each combination of missing bands
+    // encountered in the training data
 
     // Iterate over input elements and fill in missing data
     for (uint_t i = 0; i < n; ++i) {
@@ -818,14 +827,9 @@ void GPz::buildLinearPredictorCache_(const Mat2d& input) {
             }
         }
 
-        if (countMissing == 0) {
-            // No missing data
-            continue;
-        }
-
         // See if this combination of missing bands has already been cached
         bool matchFound = false;
-        for (auto& cacheItem : fillinPredictorCache_) {
+        for (auto& cacheItem : missingCache_) {
             bool match = true;
             for (uint_t j = 0; j < d; ++j) {
                 if (missing[j] != cacheItem.missing[j]) {
@@ -845,9 +849,91 @@ void GPz::buildLinearPredictorCache_(const Mat2d& input) {
             continue;
         }
 
-        // Combination not found, compute predictor
+        // Combination not found, add new cache entry
+        MissingCacheElement newCache;
+        newCache.id = missingCache_.size();
+        newCache.countMissing = countMissing;
+        newCache.missing = missing;
+        missingCache_.push_back(newCache);
+    }
+}
 
+const GPz::MissingCacheElement* GPz::findMissingCacheElement_(int id) const {
+    // Fast method, assumes the cache is sorted by increasing ID
+
+    if (id > 0 && static_cast<uint_t>(id) < missingCache_.size()) {
+        return &missingCache_[id];
+    } else {
+        return nullptr;
+    }
+
+    // Slow but more foolprof method (assumes no ordering)
+
+    // auto iter = std::find_if(missingCache_.begin(), missingCache_.end(),
+    //     [&](const MissingCacheElement& element) {
+    //         return element.id == id;
+    //     }
+    // );
+
+    // if (iter == missingCache_.end()) {
+    //     return nullptr;
+    // } else {
+    //     return &*iter;
+    // }
+}
+
+Vec1i GPz::findBestMissingID_(const Mat2d& input) const {
+    const uint_t d = numberFeatures_;
+    const uint_t n = input.rows();
+
+    Vec1i result(n);
+    for (uint_t i = 0; i < n; ++i) {
+        std::vector<bool> missing(d);
+        for (uint_t j = 0; j < d; ++j) {
+            missing[j] = std::isnan(input(i,j));
+        }
+
+        // See if this combination of missing bands exists in the cache
+        int bestDistance = d+1;
+        int bestID = 0;
+        for (auto& cacheItem : missingCache_) {
+            int distance = 0;
+            bool match = true;
+            for (uint_t j = 0; j < d; ++j) {
+                if (missing[j] && !cacheItem.missing[j]) {
+                    // This cache element is not missing a band but
+                    // the galaxy is, discard
+                    match = false;
+                    break;
+                }
+
+                // For reach mis-matching missing bands, add
+                // one to the distance, so the cache element with
+                // the closest distance is the best matching combination
+                if (missing[j] != cacheItem.missing[j]) {
+                    ++distance;
+                }
+            }
+
+            if (match && distance < bestDistance) {
+                bestDistance = distance;
+                bestID = cacheItem.id;
+            }
+        }
+
+        result[i] = bestID;
+    }
+
+    return result;
+}
+
+void GPz::buildLinearPredictorCache_(const Mat2d& input) {
+    const uint_t d = numberFeatures_;
+
+    // Iterate over cache entries and build linear predictor matrix
+    for (auto& cacheItem : missingCache_) {
         // Extract sub-blocks of the PCASigma matrix
+        const uint_t countMissing = cacheItem.countMissing;
         // sigma(observed,missing)
         Mat2d sigmaMissing(d - countMissing, countMissing);
         // sigma(observed,observed)
@@ -855,8 +941,8 @@ void GPz::buildLinearPredictorCache_(const Mat2d& input) {
 
         for (uint_t j = 0, l = 0; j < d; ++j)
         for (uint_t k = 0, q = 0, r = 0; k < d; ++k) {
-            if (!missing[j]) {
-                if (missing[k]) {
+            if (!cacheItem.missing[j]) {
+                if (cacheItem.missing[k]) {
                     sigmaMissing(l,q) = featurePCASigma_(j,k);
                     ++q;
                 } else {
@@ -872,66 +958,23 @@ void GPz::buildLinearPredictorCache_(const Mat2d& input) {
         Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
 
         // Compute predictor by solving for sigma(observed,missing)
-        FillinCacheElement newCache;
-        newCache.missing = missing;
-        newCache.predictor = cholesky.solve(sigmaMissing);
-
-        // Store predictor
-        fillinPredictorCache_.push_back(newCache);
+        cacheItem.predictor = cholesky.solve(sigmaMissing);
     }
 }
 
-const GPz::FillinCacheElement* GPz::findFillinCacheElement_(const std::vector<bool>& missing) const {
-    const uint_t d = numberFeatures_;
-
-    // Find this combination of missing bands in the cache
-    const FillinCacheElement* cache = nullptr;
-    for (auto& cacheItem : fillinPredictorCache_) {
-        bool match = true;
-        for (uint_t j = 0; j < d; ++j) {
-            if (missing[j] != cacheItem.missing[j]) {
-                match = false;
-                break;
-            }
-        }
-
-        if (match) {
-            cache = &cacheItem;
-            break;
-        }
-    }
-
-    return cache;
-}
-
-Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
+Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
     // Iterate over input elements and fill in missing data
     for (uint_t i = 0; i < n; ++i) {
-        std::vector<bool> missing(d);
-        uint_t countMissing = 0;
-        for (uint_t j = 0; j < d; ++j) {
-            missing[j] = std::isnan(input(i,j));
-            if (missing[j]) {
-                ++countMissing;
-            }
-        }
-
-        if (countMissing == 0) {
-            // No missing data
-            continue;
-        }
-
-        const FillinCacheElement* cache = findFillinCacheElement_(missing);
-
+        const MissingCacheElement* cache = findMissingCacheElement_(missing[i]);
         assert(cache != nullptr && "bug in fillin cache for training");
 
         // Consolidate observed bands in one array
-        Mat1d observed(d - countMissing);
+        Mat1d observed(d - cache->countMissing);
         for (uint_t j = 0, k = 0; j < d; ++j) {
-            if (!missing[j]) {
+            if (!cache->missing[j]) {
                 observed[k] = input(i,j) - featurePCAMean_[j];
                 ++k;
             }
@@ -940,7 +983,7 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
         // Fill in missing data
         Mat1d missingFilled = observed*cache->predictor;
         for (uint_t j = 0, k = 0; j < d; ++j) {
-            if (missing[j]) {
+            if (cache->missing[j]) {
                 input(i,j) = missingFilled[k] + featurePCAMean_[j];
                 ++k;
             }
@@ -950,13 +993,13 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input) const {
     return input;
 }
 
-Vec1d GPz::initializeCovariancesMakeGamma_(const Mat2d& input) const {
+Vec1d GPz::initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& missing) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
     // Replace missing data by linear predictions based on observed data
-    Mat2d linearInputs = initializeCovariancesFillLinear_(input);
+    Mat2d linearInputs = initializeCovariancesFillLinear_(input, missing);
 
     Vec1d gamma(m);
     double factor = 0.5*pow(m, 1.0/d);
@@ -981,7 +1024,7 @@ void GPz::initializeCovariances_() {
     const uint_t d = numberFeatures_;
 
     // Compute some statistics from training set
-    Vec1d gamma = initializeCovariancesMakeGamma_(inputTrain_);
+    Vec1d gamma = initializeCovariancesMakeGamma_(inputTrain_, missingTrain_);
 
     switch (covarianceType_) {
         case CovarianceType::GLOBAL_LENGTH:
@@ -1079,13 +1122,12 @@ void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
 // Internal functions: prediction
 // ==============================
 
-Vec1d GPz::predict_(const Mat2d& input, const Mat2d& inputError) const {
+Vec1d GPz::predict_(const Mat2d& input, const Mat2d& /* inputError */, const Vec1i& /* missing */) const {
     Vec1d prediction(input.rows());
 
     // TODO: placeholder
-    prediction = input.colwise().sum() + inputError.colwise().sum();
 
-    return Vec1d{};
+    return prediction;
 }
 
 
@@ -1291,14 +1333,17 @@ Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check that we have a usable set of parameters to make predictions
     assert(parameters_.basisFunctionPositions.rows() != 0 && "model is not initialized");
 
+    // Detect missing data
+    Vec1i missing = findBestMissingID_(input);
+
     // Project input from real space to training space
     applyInputNormalization_(input, inputError);
 
     // Make prediction
-    Vec1d output = predict_(input, inputError);
+    Vec1d output = predict_(input, inputError, missing);
 
     // De-project output from training space to real space
-    restoreOutputNormalization_(input, output);
+    restoreOutputNormalization_(input, missing, output);
 
     return output;
 }

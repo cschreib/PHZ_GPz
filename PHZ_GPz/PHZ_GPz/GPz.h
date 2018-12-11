@@ -263,12 +263,14 @@ class GPz {
     Vec1d  featureSigma_;      // GPz MatLab: sdX
     double outputMean_ = 0.0;  // GPz MatLab: muY
 
-    struct FillinCacheElement {
+    struct MissingCacheElement {
+        int               id = 0;
+        uint_t            countMissing = 0;
         std::vector<bool> missing;
-        Mat2d predictor;
+        Mat2d             predictor;
     };
 
-    std::vector<FillinCacheElement> fillinPredictorCache_;
+    std::vector<MissingCacheElement> missingCache_;
 
     Vec1d  featurePCAMean_;
     Vec1d  featurePCASigma_;
@@ -291,10 +293,12 @@ class GPz {
     Mat2d inputErrorTrain_; // GPzMatLab: Psi[training,:]
     Vec1d outputTrain_;     // GPzMatLab: Y[training,:]
     Vec1d weightTrain_;     // GPzMatLab: omega[training,:]
+    Vec1i missingTrain_;
     Mat2d inputValid_;      // GPzMatLab: X[validation,:]
     Mat2d inputErrorValid_; // GPzMatLab: Psi[validation,:]
     Vec1d outputValid_;     // GPzMatLab: Y[validation,:]
     Vec1d weightValid_;     // GPzMatLab: omega[validation,:]
+    Vec1i missingValid_;
 
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
@@ -321,16 +325,17 @@ class GPz {
 
     void applyInputNormalization_(Mat2d& input, Mat2d& inputError) const;
 
-    void applyOutputNormalization_(const Mat2d& input, Vec1d& output) const;
+    void applyOutputNormalization_(const Mat2d& input, const Vec1i& missing, Vec1d& output) const;
 
-    void restoreOutputNormalization_(const Mat2d& input, Vec1d& output) const;
+    void restoreOutputNormalization_(const Mat2d& input, const Vec1i& missing, Vec1d& output) const;
 
     void computeWhitening_(const Mat2d& input);
 
     void computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputError,
         const Vec1d& output, const Vec1d& weight);
 
-    void normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, Vec1d& output, const Vec1d& weight);
+    void normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i& missing,
+        Vec1d& output, const Vec1d& weight);
 
     void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         const Vec1d& output, const Vec1d& weight);
@@ -345,13 +350,17 @@ class GPz {
 
     void initializeBasisFunctionRelevances_();
 
+    void buildMissingCache_(const Mat2d& input);
+
+    const MissingCacheElement* findMissingCacheElement_(int id) const;
+
+    Vec1i findBestMissingID_(const Mat2d& input) const;
+
     void buildLinearPredictorCache_(const Mat2d& input);
 
-    const FillinCacheElement* findFillinCacheElement_(const std::vector<bool>& missing) const;
+    Mat2d initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) const;
 
-    Mat2d initializeCovariancesFillLinear_(Mat2d input) const;
-
-    Vec1d initializeCovariancesMakeGamma_(const Mat2d& input) const;
+    Vec1d initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& missing) const;
 
     void initializeCovariances_();
 
@@ -365,13 +374,15 @@ class GPz {
     // Internal functions: fit
     // =======================
 
+    Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError) const;
+
     void updateLikelihood_(Minimize::FunctionOutput requested);
 
     // ==============================
     // Internal functions: prediction
     // ==============================
 
-    Vec1d predict_(const Mat2d& input, const Mat2d& inputError) const;
+    Vec1d predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
 public:
 
