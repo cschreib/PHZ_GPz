@@ -379,10 +379,12 @@ void GPz::reset_() {
     inputErrorTrain_.resize(0,0);
     outputTrain_.resize(0);
     weightTrain_.resize(0);
+    missingTrain_.resize(0);
     inputValid_.resize(0,0);
     inputErrorValid_.resize(0,0);
     outputValid_.resize(0);
     weightValid_.resize(0);
+    missingValid_.resize(0);
 }
 
 void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
