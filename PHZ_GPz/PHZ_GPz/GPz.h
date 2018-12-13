@@ -264,10 +264,15 @@ class GPz {
     double outputMean_ = 0.0;  // GPz MatLab: muY
 
     struct MissingCacheElement {
-        int               id = 0;
-        uint_t            countMissing = 0;
-        std::vector<bool> missing;
-        Mat2d             predictor;
+        int                id = 0;
+        uint_t             countMissing = 0;       // u, o = d - u
+        std::vector<bool>  missing;                // [d]
+        Mat2d              predictor;              // [u,o]
+        std::vector<Mat2d> invCovariancesObserved; // [o,o], GPz MatLab: Sigma
+        std::vector<Mat2d> covariancesObserved;    // [o,o], GPz MatLab: iSigma
+        double             covariancesObservedLogDeterminant;
+        std::vector<Mat2d> gUO;                    // [u,o], GPz MatLab: GuuGuo
+        std::vector<Mat2d> dgO;                    // [u,o], GPz MatLab: dGo/diSoo
     };
 
     std::vector<MissingCacheElement> missingCache_;
@@ -354,7 +359,12 @@ class GPz {
 
     const MissingCacheElement* findMissingCacheElement_(int id) const;
 
+    const MissingCacheElement& getMissingCacheElement_(int id) const;
+
     Vec1i findBestMissingID_(const Mat2d& input) const;
+
+    void fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
+        char first, char second) const;
 
     void buildLinearPredictorCache_(const Mat2d& input);
 
@@ -374,7 +384,9 @@ class GPz {
     // Internal functions: fit
     // =======================
 
-    Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError) const;
+    void updateMissingCache_();
+
+    Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
     void updateLikelihood_(Minimize::FunctionOutput requested);
 

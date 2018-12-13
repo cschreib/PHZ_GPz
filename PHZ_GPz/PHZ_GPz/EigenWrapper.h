@@ -43,6 +43,19 @@ namespace PHZ_GPz {
     using MapVec2d = Eigen::Map<Eigen::ArrayXXd>;
     using MapVec1d = Eigen::Map<Eigen::ArrayXd>;
 
+    template<typename MatrixType>
+    double computeLogDeterminant(const MatrixType& matrix) {
+        Eigen::LLT<MatrixType> cholesky(matrix);
+        auto& lower = cholesky.matrixL();
+
+        double logDet = 0.0;
+        for (Eigen::Index i = 0; i < matrix.rows(); ++i) {
+            logDet += log(lower(i,i));
+        }
+
+        return logDet;
+    }
+
     namespace Implementation {
         // ====================================
         // Iterator types to use STL algorithms

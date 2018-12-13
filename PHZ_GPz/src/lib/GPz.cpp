@@ -854,6 +854,7 @@ void GPz::buildMissingCache_(const Mat2d& input) {
 
 const GPz::MissingCacheElement* GPz::findMissingCacheElement_(int id) const {
     // Fast method, assumes the cache is sorted by increasing ID
+    // (true by construction as long as the implementation of buildMissingCache_() is not modified)
 
     if (id > 0 && static_cast<uint_t>(id) < missingCache_.size()) {
         return &missingCache_[id];
@@ -874,6 +875,12 @@ const GPz::MissingCacheElement* GPz::findMissingCacheElement_(int id) const {
     // } else {
     //     return &*iter;
     // }
+}
+
+const GPz::MissingCacheElement& GPz::getMissingCacheElement_(int id) const {
+    const MissingCacheElement* element = findMissingCacheElement_(id);
+    assert(element != nullptr && "bug: missing cache element");
+    return *element;
 }
 
 Vec1i GPz::findBestMissingID_(const Mat2d& input) const {
@@ -901,7 +908,7 @@ Vec1i GPz::findBestMissingID_(const Mat2d& input) const {
                     break;
                 }
 
-                // For reach mis-matching missing bands, add
+                // For each mis-matching missing bands, add
                 // one to the distance, so the cache element with
                 // the closest distance is the best matching combination
                 if (missing[j] != cacheItem.missing[j]) {
@@ -921,37 +928,69 @@ Vec1i GPz::findBestMissingID_(const Mat2d& input) const {
     return result;
 }
 
-void GPz::buildLinearPredictorCache_(const Mat2d& input) {
+void GPz::fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
+    char first, char second) const {
+
     const uint_t d = numberFeatures_;
 
+    uint_t nfirst = 0;
+    uint_t nsecond = 0;
+    switch (first) {
+        case ':': nfirst = d; break;
+        case 'u': nfirst = element.countMissing; break;
+        case 'o': nfirst = d - element.countMissing; break;
+        default : assert(false && "should not happen"); break;
+    }
+    switch (second) {
+        case ':': nsecond = d; break;
+        case 'u': nsecond = element.countMissing; break;
+        case 'o': nsecond = d - element.countMissing; break;
+        default : assert(false && "should not happen"); break;
+    }
+
+    out.resize(nfirst, nsecond);
+    for (uint_t j = 0, l = 0; j < d; ++j) {
+        bool goodFirst = false;
+        switch (first) {
+            case ':': goodFirst = true; break;
+            case 'u': goodFirst = element.missing[j] == true; break;
+            case 'o': goodFirst = element.missing[j] == false; break;
+            default : assert(false && "should not happen"); break;
+        }
+
+        if (goodFirst) {
+            for (uint_t k = 0, q = 0; k < d; ++k) {
+                bool goodSecond = false;
+                switch (second) {
+                    case ':': goodSecond = true; break;
+                    case 'u': goodSecond = element.missing[k] == true; break;
+                    case 'o': goodSecond = element.missing[k] == false; break;
+                    default : assert(false && "should not happen"); break;
+                }
+
+                if (goodSecond) {
+                    out(l,q) = in(j,k);
+                    ++q;
+                }
+            }
+
+            ++l;
+        }
+    }
+}
+
+void GPz::buildLinearPredictorCache_(const Mat2d& input) {
     // Iterate over cache entries and build linear predictor matrix
     for (auto& cacheItem : missingCache_) {
         // Extract sub-blocks of the PCASigma matrix
-        const uint_t countMissing = cacheItem.countMissing;
-        // sigma(observed,missing)
-        Mat2d sigmaMissing(d - countMissing, countMissing);
-        // sigma(observed,observed)
-        Mat2d sigmaObserved(d - countMissing, d - countMissing);
-
-        for (uint_t j = 0, l = 0; j < d; ++j)
-        for (uint_t k = 0, q = 0, r = 0; k < d; ++k) {
-            if (!cacheItem.missing[j]) {
-                if (cacheItem.missing[k]) {
-                    sigmaMissing(l,q) = featurePCASigma_(j,k);
-                    ++q;
-                } else {
-                    sigmaObserved(l,r) = featurePCASigma_(j,k);
-                    ++r;
-                }
-
-                ++l;
-            }
-        }
+        // sigma(observed,missing) and sigma(observed,observed)
+        Mat2d sigmaMissing, sigmaObserved;
+        fetchMatrixElements_(sigmaMissing, featurePCASigma_, cacheItem, 'o', 'u');
+        fetchMatrixElements_(sigmaObserved, featurePCASigma_, cacheItem, 'o', 'o');
 
         // Compute Cholesky decomposition of sigma(observed,observed)
+        // and compute predictor by solving for sigma(observed,missing)
         Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
-
-        // Compute predictor by solving for sigma(observed,missing)
         cacheItem.predictor = cholesky.solve(sigmaMissing);
     }
 }
@@ -962,22 +1001,21 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) c
 
     // Iterate over input elements and fill in missing data
     for (uint_t i = 0; i < n; ++i) {
-        const MissingCacheElement* cache = findMissingCacheElement_(missing[i]);
-        assert(cache != nullptr && "bug in fillin cache for training");
+        const MissingCacheElement& cache = getMissingCacheElement_(missing[i]);
 
         // Consolidate observed bands in one array
-        Mat1d observed(d - cache->countMissing);
+        Mat1d observed(d - cache.countMissing);
         for (uint_t j = 0, k = 0; j < d; ++j) {
-            if (!cache->missing[j]) {
+            if (!cache.missing[j]) {
                 observed[k] = input(i,j) - featurePCAMean_[j];
                 ++k;
             }
         }
 
         // Fill in missing data
-        Mat1d missingFilled = observed*cache->predictor;
+        Mat1d missingFilled = observed*cache.predictor;
         for (uint_t j = 0, k = 0; j < d; ++j) {
-            if (cache->missing[j]) {
+            if (cache.missing[j] && std::isnan(input(i,j))) {
                 input(i,j) = missingFilled[k] + featurePCAMean_[j];
                 ++k;
             }
@@ -1091,18 +1129,95 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 // Internal functions: fit
 // =======================
 
-Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError) const {
+void GPz::updateMissingCache_() {
     const uint_t m = numberBasisFunctions_;
+
+    std::vector<Mat2d> isigma(m);
+    std::vector<Mat2d> sigma(m);
+    for (uint_t i = 0; i < m; ++i) {
+        const Mat2d& fullGamma = parameters_.basisFunctionCovariances[i];
+        isigma[i] = fullGamma.transpose()*fullGamma;
+        sigma[i] = isigma[i].inverse();
+    }
+
+    for (auto& cacheItem : missingCache_) {
+        // Compute covariance matrices
+        cacheItem.covariancesObserved.resize(m);
+        cacheItem.invCovariancesObserved.resize(m);
+        cacheItem.gUO.resize(m);
+        cacheItem.dgO.resize(m);
+        for (uint_t i = 0; i < m; ++i) {
+            const Mat2d& fullGamma = parameters_.basisFunctionCovariances[i];
+
+            // Fetch elements of the covariance matrix for non-missing bands
+            fetchMatrixElements_(cacheItem.invCovariancesObserved[i], sigma[i], cacheItem, 'o', 'o');
+            fetchMatrixElements_(cacheItem.covariancesObserved[i], isigma[i], cacheItem, 'o', 'o');
+
+            // Compute log determinant
+            cacheItem.covariancesObservedLogDeterminant = computeLogDeterminant(cacheItem.covariancesObserved[i]);
+
+            // Compute gUO and dgO
+            Mat2d isigmaMissing, isigmaObserved;
+            Mat2d gammaMissing, gammaObserved;
+            fetchMatrixElements_(isigmaMissing,  isigma[i], cacheItem, 'u', 'u');
+            fetchMatrixElements_(isigmaObserved, isigma[i], cacheItem, 'u', 'o');
+            fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
+            fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
+
+            cacheItem.gUO[i] = isigmaMissing.inverse()*isigmaObserved;
+            cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
+        }
+    }
+}
+
+Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+    const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
-    Mat2d funcs(n,m);
+    const Mat2d& positions = parameters_.basisFunctionPositions;
 
-    // TODO: placeholder
+    Mat2d funcs(n,m);
+    for (uint_t i = 0; i < n; ++i) {
+        const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
+
+        for (uint_t j = 0; j < m; ++j) {
+            double value = log(2.0)*element.countMissing;
+            if (inputError.rows() == 0) {
+                const Mat2d& isigma = element.covariancesObserved[j];
+
+                for (uint_t k = 0; k < d; ++k)
+                for (uint_t l = k; l < d; ++l) {
+                    value += (l == k ? 1.0 : 2.0)*isigma(k,l)
+                        *(input(i,k) - positions(j,k))*(input(i,l) - positions(j,l));
+                }
+            } else {
+                Mat2d psi = inputError.row(i).asDiagonal();
+                Mat2d psiObserved;
+                fetchMatrixElements_(psiObserved, psi, element, 'o', 'o');
+
+                Mat2d sigma = element.invCovariancesObserved[j] + psiObserved;
+                value += computeLogDeterminant(sigma) - element.covariancesObservedLogDeterminant;
+
+                Mat2d isigma = sigma.inverse();
+
+                for (uint_t k = 0; k < d; ++k)
+                for (uint_t l = k; l < d; ++l) {
+                    value += (l == k ? 1.0 : 2.0)*isigma(k,l)
+                        *(input(i,k) - positions(j,k))*(input(i,l) - positions(j,l));
+                }
+            }
+
+            funcs(i,j) = exp(-0.5*value);
+        }
+    }
 
     return funcs;
 }
 
 void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
+    updateMissingCache_();
+
     if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
         requested == Minimize::FunctionOutput::METRIC_TRAIN) {
         // TODO: placeholder
