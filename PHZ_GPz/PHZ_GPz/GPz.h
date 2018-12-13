@@ -298,15 +298,26 @@ class GPz {
     Mat2d inputErrorTrain_; // GPzMatLab: Psi[training,:]
     Vec1d outputTrain_;     // GPzMatLab: Y[training,:]
     Vec1d weightTrain_;     // GPzMatLab: omega[training,:]
+    double sumWeightTrain_ = 0.0;
     Vec1i missingTrain_;
     Mat2d inputValid_;      // GPzMatLab: X[validation,:]
     Mat2d inputErrorValid_; // GPzMatLab: Psi[validation,:]
     Vec1d outputValid_;     // GPzMatLab: Y[validation,:]
     Vec1d weightValid_;     // GPzMatLab: omega[validation,:]
+    double sumWeightValid_ = 0.0;
     Vec1i missingValid_;
 
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
+
+    // =============================
+    // Minimization cached variables
+    // =============================
+
+    Mat2d trainBasisFunctions_; // GPzMatLab: PHI
+    Mat1d trainOutputLogError_;    // GPzMatLab: beta
+    Mat1d modelWeights_;        // GPzMatLab: w
+    Mat2d modelInvCovariance_;  // GPzMatLab: iSigma_w
 
     // ====================================
     // Internal functions: hyper-parameters
@@ -384,13 +395,18 @@ class GPz {
     // Internal functions: fit
     // =======================
 
-    void updateMissingCache_();
 
     Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
-    void updateLikelihoodTrain_();
+    Mat1d evaluateOutputErrors_(const Mat2d& basisFunctions) const;
 
-    void updateDerivativesTrain_();
+    void updateTrainMissingCache_();
+
+    void updateTrainBasisFunctions_();
+
+    void updateTrainOutputErrors_();
+
+    void updateTrainModel_(Minimize::FunctionOutput requested);
 
     void updateLikelihoodValid_();
 

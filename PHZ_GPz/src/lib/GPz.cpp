@@ -24,7 +24,6 @@
 #include "PHZ_GPz/GPz.h"
 #include <random>
 #include <Eigen/Eigenvalues>
-#include <Eigen/Cholesky>
 
 namespace PHZ_GPz {
 
@@ -385,6 +384,11 @@ void GPz::reset_() {
     outputValid_.resize(0);
     weightValid_.resize(0);
     missingValid_.resize(0);
+
+    trainBasisFunctions_.resize(0,0);
+    trainOutputLogError_.resize(0);
+    modelWeights_.resize(0);
+    modelInvCovariance_.resize(0,0);
 }
 
 void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
@@ -641,6 +645,8 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
             }
         }
 
+        sumWeightTrain_ = weightTrain_.sum();
+
         // Pick validation data from second part of shuffled data
         inputValid_.resize(numberValid, numberFeatures_);
         if (inputError.rows() != 0) {
@@ -662,6 +668,8 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
                 }
             }
         }
+
+        sumWeightValid_ = weightValid_.sum();
     }
 }
 
@@ -1129,7 +1137,7 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 // Internal functions: fit
 // =======================
 
-void GPz::updateMissingCache_() {
+void GPz::updateTrainMissingCache_() {
     const uint_t m = numberBasisFunctions_;
 
     std::vector<Mat2d> isigma(m);
@@ -1137,7 +1145,7 @@ void GPz::updateMissingCache_() {
     for (uint_t i = 0; i < m; ++i) {
         const Mat2d& fullGamma = parameters_.basisFunctionCovariances[i];
         isigma[i] = fullGamma.transpose()*fullGamma;
-        sigma[i] = isigma[i].inverse();
+        sigma[i] = computeInverseSymmetric(isigma[i]);
     }
 
     for (auto& cacheItem : missingCache_) {
@@ -1164,10 +1172,18 @@ void GPz::updateMissingCache_() {
             fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
             fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
 
-            cacheItem.gUO[i] = isigmaMissing.inverse()*isigmaObserved;
+            cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaObserved;
             cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
         }
     }
+}
+
+void GPz::updateTrainBasisFunctions_() {
+    trainBasisFunctions_ = evaluateBasisFunctions_(inputTrain_, inputErrorTrain_, missingTrain_);
+}
+
+void GPz::updateTrainOutputErrors_() {
+    trainOutputLogError_ = evaluateOutputErrors_(trainBasisFunctions_);
 }
 
 Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
@@ -1199,7 +1215,7 @@ Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, 
                 Mat2d sigma = element.invCovariancesObserved[j] + psiObserved;
                 value += computeLogDeterminant(sigma) - element.covariancesObservedLogDeterminant;
 
-                Mat2d isigma = sigma.inverse();
+                Mat2d isigma = computeInverseSymmetric(sigma);
 
                 for (uint_t k = 0; k < d; ++k)
                 for (uint_t l = k; l < d; ++l) {
@@ -1215,14 +1231,187 @@ Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, 
     return funcs;
 }
 
-void GPz::updateLikelihoodTrain_() {
-    // TODO: placeholder
-    logLikelihood_ = 0.0;
+Mat1d GPz::evaluateOutputErrors_(const Mat2d& basisFunctions) const {
+    const uint_t n = basisFunctions.rows();
+
+    Mat1d errors(n);
+
+    // Constant term
+    for (uint_t i = 0; i < n; ++i) {
+        errors[i] = parameters_.uncertaintyConstant;
+    }
+
+    if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
+        // Input-dependent parametrization using basis functions
+        errors += basisFunctions*parameters_.uncertaintyBasisWeights;
+    }
+
+    return errors;
 }
 
-void GPz::updateDerivativesTrain_() {
-    // TODO: placeholder
-    derivatives_.uncertaintyConstant = 0.0;
+void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
+    const uint_t n = inputTrain_.rows();
+    const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
+
+    const bool updateLikelihood =
+        requested == Minimize::FunctionOutput::ALL_TRAIN ||
+        requested == Minimize::FunctionOutput::METRIC_TRAIN;
+
+    const bool updateDerivatives =
+        requested == Minimize::FunctionOutput::ALL_TRAIN ||
+        requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN;
+
+    if (updateLikelihood) {
+        logLikelihood_ = 0.0;
+    }
+
+    updateTrainMissingCache_();
+    updateTrainBasisFunctions_();
+    updateTrainOutputErrors_();
+
+    // First step: update the log likelihood
+    // (and, if asked, also update some derivatives while we are at it)
+
+    Mat1d relevances = parameters_.basisFunctionRelevances.array().exp().matrix(); // GPzMatLab: alpha
+    Mat1d errorRelevances;
+    Mat1d errorWeightsSquared;
+    if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
+        errorRelevances = parameters_.uncertaintyBasisRelevances.array().exp().matrix();
+        errorWeightsSquared = parameters_.uncertaintyBasisWeights.array().pow(2).matrix();
+    }
+
+    Mat1d trainOutputError = (-trainOutputLogError_).array().exp().matrix(); // GPzMatLab: beta
+    Mat1d dataWeight = weightTrain_.matrix()*trainOutputError; // GPzMatLab: omega_x_beta
+    Mat2d weightedBasisFunctions = trainBasisFunctions_; // GPzMatLab: BxPHI
+    for (uint_t i = 0; i < n; ++i) {
+        weightedBasisFunctions.row(i) *= dataWeight[i];
+    }
+
+    Mat2d modelCovariance = weightedBasisFunctions.transpose()*trainBasisFunctions_
+        + relevances.asDiagonal().toDenseMatrix(); // GPzMatLab: SIGMA
+
+    Eigen::JacobiSVD<Mat2d> svd(modelCovariance);
+
+    modelInvCovariance_ = svd.solve(Mat2d::Identity(m,m));
+    modelWeights_ = modelInvCovariance_*weightedBasisFunctions.transpose()*inputTrain_;
+
+    Mat1d deviates = trainBasisFunctions_*modelWeights_ - inputTrain_; // GPzMatLab: delta
+    Mat1d weightedDeviates = (dataWeight.array()*deviates.array()).matrix(); // GpzMatLab: omega_beta_x_delta
+
+    if (updateLikelihood) {
+        // Log likelihood
+        // ==============
+
+        logLikelihood_ = -0.5*(weightedDeviates.array()*deviates.array()).sum()
+            -0.5*(relevances.array()*modelWeights_.array().pow(2)).sum()
+            +0.5*parameters_.basisFunctionRelevances.sum()
+            -0.5*computeLogDeterminant(svd)
+            +0.5*((-trainOutputLogError_).array()*weightTrain_.array()).sum()
+            -0.5*log(2.0*M_PI)*sumWeightTrain_;
+
+        if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
+            logLikelihood_ += -0.5*(errorWeightsSquared.array()*errorRelevances.array()).sum()
+                +0.5*parameters_.uncertaintyBasisRelevances.sum()
+                -0.5*m*log(2.0*M_PI);
+        }
+    }
+
+    if (updateDerivatives) {
+        // Derivative of basis functions
+        // =============================
+
+        Mat2d derivBasis = -weightedBasisFunctions*modelInvCovariance_
+            -weightedDeviates*modelWeights_.transpose();
+
+        // Derivative wrt relevance
+        // ========================
+
+        Mat1d dwda = -modelInvCovariance_*(relevances.array()*modelWeights_.array()).matrix();
+
+        derivatives_.basisFunctionRelevances = 0.5
+            -0.5*modelInvCovariance_.diagonal().array()*relevances.array()
+            -(trainBasisFunctions_.transpose()*weightedDeviates).array()*dwda.array()
+            -relevances.array()*modelWeights_.array()*dwda.array()
+            -0.5*relevances.array()*modelWeights_.array().pow(2);
+
+        // Derivative wrt uncertainty constant
+        // ===================================
+
+        Mat1d nu = ((trainBasisFunctions_*modelInvCovariance_).array()*trainBasisFunctions_.array())
+            .rowwise().sum(); // GPzMatLab: nu
+
+        Mat1d derivOutputError(n); // GPzMatLab: dbeta
+        // Do this in an explicit loop as all operations are component-wise, it's clearer
+        for (uint_t i = 0; i < n; ++i) {
+            derivOutputError[i] = -0.5*weightTrain_[i]*
+                (1.0 + trainOutputError[i]*(deviates[i]*deviates[i] + nu[i]));
+        }
+
+        derivatives_.uncertaintyConstant = derivOutputError.sum();
+
+        if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
+            // Derivative wrt uncertainty weights
+            // ==================================
+
+            Mat1d weightedRelevance = parameters_.uncertaintyBasisWeights.array()
+                *parameters_.uncertaintyBasisRelevances.array();
+
+            derivatives_.uncertaintyBasisWeights = trainBasisFunctions_.transpose()*derivOutputError
+                -weightedRelevance;
+
+            // Derivative wrt uncertainty relevances
+            // =====================================
+
+            derivatives_.uncertaintyBasisRelevances = 0.5
+                -0.5*weightedRelevance.array()*parameters_.uncertaintyBasisRelevances.array();
+
+            // Contribution to derivative of basis functions
+            // =============================================
+
+            derivBasis += derivOutputError*parameters_.uncertaintyBasisWeights.transpose();
+        }
+
+        // Derivatives wrt to basis positions & covariances
+        // ================================================
+
+        derivBasis = derivBasis.array()*trainBasisFunctions_.array();
+
+        derivatives_.basisFunctionPositions.fill(0.0);
+        for (uint_t i = 0; i < m; ++i) {
+            derivatives_.basisFunctionCovariances[i].fill(0.0);
+        }
+
+        for (uint_t i = 0; i < n; ++i) {
+            const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
+
+            for (uint_t j = 0; j < m; ++j) {
+                Mat1d delta(d);
+                for (uint_t k = 0; k < d; ++k) {
+                    delta[k] = inputTrain_(i,k) - parameters_.basisFunctionPositions(j,k);
+                }
+
+                if (inputErrorTrain_.rows() == 0) {
+                    const Mat2d& isigma = element.covariancesObserved[j];
+
+                    derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*delta*isigma;
+
+                    // TODO: finish this
+
+                } else {
+                    Mat2d psi = inputErrorTrain_.row(i).asDiagonal();
+                    Mat2d psiObserved;
+                    fetchMatrixElements_(psiObserved, psi, element, 'o', 'o');
+
+                    Mat2d sigma = element.invCovariancesObserved[j] + psiObserved;
+                    Mat2d isigma = computeInverseSymmetric(sigma);
+
+                    // TODO: finish this
+                }
+            }
+        }
+    }
+
 }
 
 void GPz::updateLikelihoodValid_() {
@@ -1230,7 +1419,6 @@ void GPz::updateLikelihoodValid_() {
     // Vec1d predictOutput = predict_(inputTrain_, inputErrorTrain_);
     logLikelihoodValid_ = 0.0;
 }
-
 
 // ==============================
 // Internal functions: prediction
@@ -1243,7 +1431,6 @@ Vec1d GPz::predict_(const Mat2d& input, const Mat2d& /* inputError */, const Vec
 
     return prediction;
 }
-
 
 // =============================
 // Configuration getters/setters
@@ -1382,6 +1569,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     options.gradientTolerance = optimizationGradientTolerance_;
 
     Minimize::minimizeBFGS(options, initialValues,
+        // Minimization function
         [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
 
             if (requested == Minimize::FunctionOutput::METRIC_VALID) {
@@ -1396,24 +1584,20 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
             } else {
                 // Load new parameters
                 loadParametersArray_(vectorParameters, parameters_);
-                updateMissingCache_();
+
+                // Initialize cache for this iteration
+                updateTrainModel_(requested);
 
                 Vec1d result(1+numberParameters_);
 
                 if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
                     requested == Minimize::FunctionOutput::METRIC_TRAIN) {
-                    // Update the likelihood of the training set
-                    updateLikelihoodTrain_();
-
                     // Return log likelihood
                     result[0] = -logLikelihood_/inputTrain_.rows();
                 }
 
                 if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
                     requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
-                    // Update the derivatives of likelihood wrt model parameters
-                    updateDerivativesTrain_();
-
                     // Return derivatives
                     Vec1d vectorDerivatives = makeParameterArray_(derivatives_);
                     for (uint_t i = 0; i < numberParameters_; ++i) {

@@ -25,6 +25,8 @@
 #define _PHZ_GPZ_EIGEN_WRAPPER_H
 
 #include <Eigen/Dense>
+#include <Eigen/Cholesky>
+#include <Eigen/SVD>
 
 namespace PHZ_GPz {
 
@@ -44,16 +46,40 @@ namespace PHZ_GPz {
     using MapVec1d = Eigen::Map<Eigen::ArrayXd>;
 
     template<typename MatrixType>
-    double computeLogDeterminant(const MatrixType& matrix) {
-        Eigen::LLT<MatrixType> cholesky(matrix);
+    double computeLogDeterminant(const Eigen::LLT<MatrixType>& cholesky) {
         auto& lower = cholesky.matrixL();
 
         double logDet = 0.0;
-        for (Eigen::Index i = 0; i < matrix.rows(); ++i) {
+        for (Eigen::Index i = 0; i < lower.rows(); ++i) {
             logDet += log(lower(i,i));
         }
 
         return logDet;
+    }
+
+    template<typename MatrixType>
+    double computeLogDeterminant(const Eigen::JacobiSVD<MatrixType>& svd) {
+        auto& diag = svd.singularValues();
+
+        double logDet = 0.0;
+        for (Eigen::Index i = 0; i < diag.size(); ++i) {
+            logDet += log(diag[i]);
+        }
+
+        return logDet;
+    }
+
+    template<typename MatrixType>
+    double computeLogDeterminant(const MatrixType& matrix) {
+        Eigen::JacobiSVD<Mat2d> svd(matrix);
+        return computeLogDeterminant(svd);
+    }
+
+    template<typename MatrixType>
+    Mat2d computeInverseSymmetric(const MatrixType& matrix) {
+        assert(matrix.rows() == matrix.cols() && "can only be called on symmetric matrices");
+        Eigen::JacobiSVD<Mat2d> svd(matrix);
+        return svd.solve(Mat2d::Identity(matrix.rows(),matrix.rows()));
     }
 
     namespace Implementation {
