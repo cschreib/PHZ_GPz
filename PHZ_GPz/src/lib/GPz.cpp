@@ -1351,7 +1351,7 @@ void GPz::setOptimizationTolerance(double tolerance) {
     optimizationTolerance_ = tolerance;
 }
 
-uint_t GPz::getOptimizationTolerance() const {
+double GPz::getOptimizationTolerance() const {
     return optimizationTolerance_;
 }
 
@@ -1359,7 +1359,7 @@ void GPz::setOptimizationGradientTolerance(double tolerance) {
     optimizationGradientTolerance_ = tolerance;
 }
 
-uint_t GPz::getOptimizationGradientTolerance() const {
+double GPz::getOptimizationGradientTolerance() const {
     return optimizationGradientTolerance_;
 }
 

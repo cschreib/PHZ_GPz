@@ -478,11 +478,11 @@ public:
 
     void setOptimizationTolerance(double tolerance);
 
-    uint_t getOptimizationTolerance() const;
+    double getOptimizationTolerance() const;
 
     void setOptimizationGradientTolerance(double tolerance);
 
-    uint_t getOptimizationGradientTolerance() const;
+    double getOptimizationGradientTolerance() const;
 
     // =====================
     // Fit/training function
