@@ -388,7 +388,11 @@ class GPz {
 
     Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
-    void updateLikelihood_(Minimize::FunctionOutput requested);
+    void updateLikelihoodTrain_();
+
+    void updateDerivativesTrain_();
+
+    void updateLikelihoodValid_();
 
     // ==============================
     // Internal functions: prediction

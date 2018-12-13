@@ -1215,26 +1215,20 @@ Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, 
     return funcs;
 }
 
-void GPz::updateLikelihood_(Minimize::FunctionOutput requested) {
-    updateMissingCache_();
+void GPz::updateLikelihoodTrain_() {
+    // TODO: placeholder
+    logLikelihood_ = 0.0;
+}
 
-    if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
-        requested == Minimize::FunctionOutput::METRIC_TRAIN) {
-        // TODO: placeholder
-        logLikelihood_ = 0.0;
-    }
+void GPz::updateDerivativesTrain_() {
+    // TODO: placeholder
+    derivatives_.uncertaintyConstant = 0.0;
+}
 
-    if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
-        requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
-        // TODO: placeholder
-        derivatives_.uncertaintyConstant = 0.0;
-    }
-
-    if (requested == Minimize::FunctionOutput::METRIC_VALID) {
-        // TODO: placeholder
-        // Vec1d predictOutput = predict_(inputTrain_, inputErrorTrain_);
-        logLikelihoodValid_ = 0.0;
-    }
+void GPz::updateLikelihoodValid_() {
+    // TODO: placeholder
+    // Vec1d predictOutput = predict_(inputTrain_, inputErrorTrain_);
+    logLikelihoodValid_ = 0.0;
 }
 
 
@@ -1390,41 +1384,45 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     Minimize::minimizeBFGS(options, initialValues,
         [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
 
-            Vec1d result;
-
             if (requested == Minimize::FunctionOutput::METRIC_VALID) {
-                result.resize(1);
-            } else {
-                result.resize(1+numberParameters_);
+                // Compute likelihood of the validation set
+                updateLikelihoodValid_();
 
+                // Return only the log likelihood
+                Vec1d result(1);
+                result[0] = -logLikelihoodValid_/inputValid_.rows();
+
+                return result;
+            } else {
                 // Load new parameters
                 loadParametersArray_(vectorParameters, parameters_);
-            }
+                updateMissingCache_();
 
-            // Compute/update the requested quantities
-            updateLikelihood_(requested);
+                Vec1d result(1+numberParameters_);
 
-            if (requested == Minimize::FunctionOutput::METRIC_VALID) {
-                // Return only the log likelihood of the validation set
-                result[0] = logLikelihoodValid_;
-            } else {
                 if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
                     requested == Minimize::FunctionOutput::METRIC_TRAIN) {
-                    // Return log likelihood of the training set
-                    result[0] = logLikelihood_;
+                    // Update the likelihood of the training set
+                    updateLikelihoodTrain_();
+
+                    // Return log likelihood
+                    result[0] = -logLikelihood_/inputTrain_.rows();
                 }
 
                 if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
                     requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
-                    // Return derivatives of log likelihood with respect to hyper-parameters
+                    // Update the derivatives of likelihood wrt model parameters
+                    updateDerivativesTrain_();
+
+                    // Return derivatives
                     Vec1d vectorDerivatives = makeParameterArray_(derivatives_);
                     for (uint_t i = 0; i < numberParameters_; ++i) {
-                        result[1+i] = vectorDerivatives[i];
+                        result[1+i] = -vectorDerivatives[i]/inputTrain_.rows();
                     }
                 }
-            }
 
-            return result;
+                return result;
+            }
         }
     );
 }
