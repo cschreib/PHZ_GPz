@@ -362,6 +362,8 @@ class GPz {
 
     void computeTrainingPCA_();
 
+    void buildLinearPredictorCache_();
+
     void initializeBasisFunctions_();
 
     void initializeBasisFunctionRelevances_();
@@ -379,8 +381,6 @@ class GPz {
 
     void addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElement& element,
         char first, char second) const;
-
-    void buildLinearPredictorCache_(const Mat2d& input);
 
     Mat2d initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) const;
 

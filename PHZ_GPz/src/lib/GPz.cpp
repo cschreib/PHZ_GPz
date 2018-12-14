@@ -1022,7 +1022,7 @@ void GPz::addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElem
     }
 }
 
-void GPz::buildLinearPredictorCache_(const Mat2d& input) {
+void GPz::buildLinearPredictorCache_() {
     // Iterate over cache entries and build linear predictor matrix
     for (auto& cacheItem : missingCache_) {
         // Extract sub-blocks of the PCASigma matrix
@@ -1154,12 +1154,16 @@ void GPz::initializeFit_() {
 
     // Pre-compute some things
     computeTrainingPCA_();
+    buildLinearPredictorCache_();
 
     // Set initial values for hyper-parameters
     initializeBasisFunctions_();
     initializeBasisFunctionRelevances_();
     initializeCovariances_();
     initializeErrors_();
+
+    // TODO: we could free the memory used by the predictor cache here,
+    // if it is not used by anything else but to initialize the covariances.
 }
 
 bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const {
