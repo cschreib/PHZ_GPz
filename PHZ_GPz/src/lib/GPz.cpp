@@ -437,7 +437,7 @@ void GPz::applyOutputNormalization_(const Mat2d& input, const Vec1i& /* missing 
     }
 }
 
-void GPz::restoreOutputNormalization_(const Mat2d& input, const Vec1i& /* missing */, Vec1d& output) const {
+void GPz::restoreOutputNormalization_(const Mat2d& input, const Vec1i& /* missing */, GPzOutput& output) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -449,10 +449,10 @@ void GPz::restoreOutputNormalization_(const Mat2d& input, const Vec1i& /* missin
                 // TODO: fix this for missing variables
                 pred += input(i,j)*decorrelationCoefficients_[j];
             }
-            output[i] += pred;
+            output.value[i] += pred;
         }
     } else if (priorMean_ == PriorMeanFunction::CONSTANT_PREPROCESS) {
-        output += outputMean_;
+        output.value += outputMean_;
     }
 }
 
@@ -1494,16 +1494,20 @@ void GPz::updateLikelihoodValid_() {
     logLikelihoodValid_ -= 0.5*log(2.0*M_PI);
 }
 
+void GPz::computePriors_() {
+    // TODO: placeholder
+}
+
 // ==============================
 // Internal functions: prediction
 // ==============================
 
-Vec1d GPz::predict_(const Mat2d& input, const Mat2d& /* inputError */, const Vec1i& /* missing */) const {
-    Vec1d prediction(input.rows());
+GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& /* inputError */, const Vec1i& /* missing */) const {
+    GPzOutput result;
 
     // TODO: placeholder
 
-    return prediction;
+    return result;
 }
 
 // =============================
@@ -1699,6 +1703,9 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
     // Update likelihood of the validation set (for diagnostic)
     updateLikelihoodValid_();
+
+    // Compute priors for predictions
+    computePriors_();
 }
 
 // =================================
@@ -1717,7 +1724,7 @@ void GPz::setParameters(const Vec1d& newParameters) {
 // Prediction function
 // ===================
 
-Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
+GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check input is consistent
     assert(checkInputDimensions_(input) && "input has incorrect dimension");
     assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
@@ -1732,12 +1739,12 @@ Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     applyInputNormalization_(input, inputError);
 
     // Make prediction
-    Vec1d output = predict_(input, inputError, missing);
+    GPzOutput result = predict_(input, inputError, missing);
 
     // De-project output from training space to real space
-    restoreOutputNormalization_(input, missing, output);
+    restoreOutputNormalization_(input, missing, result);
 
-    return output;
+    return result;
 }
 
 }  // namespace PHZ_GPz

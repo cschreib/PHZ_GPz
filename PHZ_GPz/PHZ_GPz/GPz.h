@@ -196,6 +196,19 @@ enum class NormalizationScheme {
  * faster convergence of the hyper-parameters without loss of information.
  */
 
+/**
+ * @struct GPzOutput
+ * @brief Store the output of a GPz run
+ *
+ */
+struct GPzOutput {
+    Vec1d value;                /// Predicted value
+    Vec1d variance;             /// Predicted total variance
+    Vec1d varianceTrainDensity; /// Predicted variance due to density of training data
+    Vec1d varianceTrainNoise;   /// Predicted variance due to training data noise
+    Vec1d varianceInputNoise;   /// Predicted variance due to input noise
+};
+
 // =========
 // GPz class
 // =========
@@ -345,7 +358,7 @@ class GPz {
 
     void applyOutputNormalization_(const Mat2d& input, const Vec1i& missing, Vec1d& output) const;
 
-    void restoreOutputNormalization_(const Mat2d& input, const Vec1i& missing, Vec1d& output) const;
+    void restoreOutputNormalization_(const Mat2d& input, const Vec1i& missing, GPzOutput& output) const;
 
     void computeWhitening_(const Mat2d& input);
 
@@ -402,7 +415,6 @@ class GPz {
     // Internal functions: fit
     // =======================
 
-
     Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
     Mat1d evaluateOutputErrors_(const Mat2d& basisFunctions) const;
@@ -421,11 +433,13 @@ class GPz {
 
     void updateLikelihoodValid_();
 
+    void computePriors_();
+
     // ==============================
     // Internal functions: prediction
     // ==============================
 
-    Vec1d predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
+    GPzOutput predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
 public:
 
@@ -533,7 +547,7 @@ public:
     // Prediction function
     // ===================
 
-    Vec1d predict(Mat2d input, Mat2d inputError) const;
+    GPzOutput predict(Mat2d input, Mat2d inputError) const;
 
 };  // End of GPz class
 
