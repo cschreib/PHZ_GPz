@@ -387,6 +387,8 @@ void GPz::reset_() {
 
     trainBasisFunctions_.resize(0,0);
     trainOutputLogError_.resize(0);
+    validBasisFunctions_.resize(0,0);
+    validOutputLogError_.resize(0);
     modelWeights_.resize(0);
     modelInvCovariance_.resize(0,0);
 }
@@ -1230,8 +1232,16 @@ void GPz::updateTrainBasisFunctions_() {
     trainBasisFunctions_ = evaluateBasisFunctions_(inputTrain_, inputErrorTrain_, missingTrain_);
 }
 
+void GPz::updateValidBasisFunctions_() {
+    validBasisFunctions_ = evaluateBasisFunctions_(inputValid_, inputErrorValid_, missingValid_);
+}
+
 void GPz::updateTrainOutputErrors_() {
     trainOutputLogError_ = evaluateOutputErrors_(trainBasisFunctions_);
+}
+
+void GPz::updateValidOutputErrors_() {
+    validOutputLogError_ = evaluateOutputErrors_(validBasisFunctions_);
 }
 
 Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
@@ -1462,13 +1472,26 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             }
         }
     }
-
 }
 
 void GPz::updateLikelihoodValid_() {
-    // TODO: placeholder
-    // Vec1d predictOutput = predict_(inputTrain_, inputErrorTrain_);
+    const uint_t n = inputValid_.rows();
+
+    // Pre-compute things
+    updateValidBasisFunctions_();
+    updateValidOutputErrors_();
+
+    // Do the hard work...
+    Mat1d deviates = validBasisFunctions_*modelWeights_ - inputValid_; // GPzMatLab: delta
+
     logLikelihoodValid_ = 0.0;
+    for (uint_t i = 0; i < n; ++i) {
+        logLikelihoodValid_ -= weightValid_[i]*0.5*
+            (-validOutputLogError_[i] + exp(-validOutputLogError_[i])*deviates[i]*deviates[i]);
+    }
+
+    logLikelihoodValid_ /= n;
+    logLikelihoodValid_ -= 0.5*log(2.0*M_PI);
 }
 
 // ==============================

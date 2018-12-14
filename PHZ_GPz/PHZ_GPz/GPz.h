@@ -315,7 +315,9 @@ class GPz {
     // =============================
 
     Mat2d trainBasisFunctions_; // GPzMatLab: PHI
-    Mat1d trainOutputLogError_;    // GPzMatLab: beta
+    Mat1d trainOutputLogError_; // GPzMatLab: beta
+    Mat2d validBasisFunctions_; // GPzMatLab: PHI
+    Mat1d validOutputLogError_; // GPzMatLab: beta
     Mat1d modelWeights_;        // GPzMatLab: w
     Mat2d modelInvCovariance_;  // GPzMatLab: iSigma_w
 
@@ -409,7 +411,11 @@ class GPz {
 
     void updateTrainBasisFunctions_();
 
+    void updateValidBasisFunctions_();
+
     void updateTrainOutputErrors_();
+
+    void updateValidOutputErrors_();
 
     void updateTrainModel_(Minimize::FunctionOutput requested);
 
