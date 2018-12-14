@@ -50,7 +50,7 @@ namespace PHZ_GPz {
         auto& lower = cholesky.matrixL();
 
         double logDet = 0.0;
-        for (Eigen::Index i = 0; i < lower.rows(); ++i) {
+        for (int i = 0; i < lower.rows(); ++i) {
             logDet += log(lower(i,i));
         }
 
@@ -62,7 +62,7 @@ namespace PHZ_GPz {
         auto& diag = svd.singularValues();
 
         double logDet = 0.0;
-        for (Eigen::Index i = 0; i < diag.size(); ++i) {
+        for (int i = 0; i < diag.size(); ++i) {
             logDet += log(diag[i]);
         }
 
