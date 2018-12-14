@@ -1239,27 +1239,25 @@ Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, 
             Mat1d delta = input.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
 
             double value = log(2.0)*element.countMissing;
-            if (inputError.rows() == 0) {
-                const Mat2d& invCovariance = element.invCovariancesObserved[j]; // GPzMatLab: inv(Sigma(o,o))
 
-                for (uint_t k = 0; k < d; ++k)
-                for (uint_t l = k; l < d; ++l) {
-                    value += (l == k ? 1.0 : 2.0)*invCovariance(k,l)*delta[k]*delta[l];
-                }
+            Mat2d invCovariance; // GPzMatLab: inv(Sigma(o,o)) or inv(PsiPlusSigma)
+
+            if (inputError.rows() == 0) {
+                invCovariance = element.invCovariancesObserved[j];
             } else {
                 Mat2d variance = inputError.row(i).asDiagonal(); // GPzMatLab: Psi(:,:,i)
                 Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
                 fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
 
                 Mat2d covariance = element.covariancesObserved[j] + varianceObserved; // GPzMatLab: PsiPlusSigma
+                invCovariance = computeInverseSymmetric(covariance);
+
                 value += computeLogDeterminant(covariance) - element.covariancesObservedLogDeterminant[j];
+            }
 
-                Mat2d invCovariance = computeInverseSymmetric(covariance);
-
-                for (uint_t k = 0; k < d; ++k)
-                for (uint_t l = k; l < d; ++l) {
-                    value += (l == k ? 1.0 : 2.0)*invCovariance(k,l)*delta[k]*delta[l];
-                }
+            for (uint_t k = 0; k < d; ++k)
+            for (uint_t l = k; l < d; ++l) {
+                value += (l == k ? 1.0 : 2.0)*invCovariance(k,l)*delta[k]*delta[l];
             }
 
             funcs(i,j) = exp(-0.5*value);
@@ -1425,46 +1423,36 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             for (uint_t j = 0; j < m; ++j) {
                 Mat1d delta = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
 
+                Mat2d invCovariance;      // GPzMatLab: inv(Sigma(o,o)) or iPSoo
+                Mat2d derivInvCovariance; // GPzMatLab: diSoo
+
                 if (inputErrorTrain_.rows() == 0) {
-                    const Mat2d& invCovariance = element.invCovariancesObserved[j]; // GPzMatLab: inv(Sigma(o,o))
-
-                    // Derivative wrt to basis positions
-                    // =================================
-                    derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*delta*invCovariance;
-
-                    // Derivative wrt to basis covariances
-                    // =================================
-                    Mat2d derivInvCovariance = ((-0.5*derivBasis(i,j))*delta)*delta.transpose(); // GPzMatLab: diSoo
-
-                    Mat2d dgO = element.dgO[j]*derivInvCovariance;
-                    addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
-                    dgO = -dgO*element.gUO[j].transpose();
-                    addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                    invCovariance = element.invCovariancesObserved[j];
+                    derivInvCovariance = ((-0.5*derivBasis(i,j))*delta)*delta.transpose();
                 } else {
                     Mat2d variance = inputErrorTrain_.row(i).asDiagonal(); // GPzMatLab: Psi(:,:,i)
                     Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
                     fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
 
                     Mat2d covariance = element.covariancesObserved[j] + varianceObserved;
-                    Mat2d invCovariance = computeInverseSymmetric(covariance); // GPzMatLab: iPSoo
+                    invCovariance = computeInverseSymmetric(covariance); // GPzMatLab: iPSoo
 
-                    // Derivative wrt to basis positions
-                    // =================================
-                    derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*delta*invCovariance;
-
-                    // Derivative wrt to basis covariances
-                    // =================================
                     Mat2d derivCovariance = 0.5*(element.invCovariancesObserved[j] - invCovariance
                         + invCovariance*(delta*delta.transpose())*invCovariance); // GPzMatLab: dSoo
 
-                    // GPzMatLab: diSoo
-                    Mat2d derivInvCovariance = (-derivBasis(i,j))*element.covariancesObserved[j]*derivCovariance*element.covariancesObserved[j];
-
-                    Mat2d dgO = element.dgO[j]*derivCovariance;
-                    addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
-                    dgO = -dgO*element.gUO[j].transpose();
-                    addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                    derivInvCovariance = (-derivBasis(i,j))*element.covariancesObserved[j]*derivCovariance*element.covariancesObserved[j];
                 }
+
+                // Derivative wrt to basis positions
+                // =================================
+                derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*delta*invCovariance;
+
+                // Derivative wrt to basis covariances
+                // =================================
+                Mat2d dgO = element.dgO[j]*derivInvCovariance;
+                addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
+                dgO = -dgO*element.gUO[j].transpose();
+                addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
             }
         }
     }
