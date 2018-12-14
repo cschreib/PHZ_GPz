@@ -47,7 +47,7 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
 
     // Pseudo input relevances
     for (uint_t i = 0; i < m; ++i) {
-        outputParams[ip] = inputParams.basisFunctionRelevances[i];
+        outputParams[ip] = inputParams.basisFunctionLogRelevances[i];
         ++ip;
     }
 
@@ -102,13 +102,13 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
     // Output error parametrization
     switch (outputUncertaintyType_) {
         case OutputUncertaintyType::UNIFORM: {
-            outputParams[ip] = inputParams.uncertaintyConstant;
+            outputParams[ip] = inputParams.logUncertaintyConstant;
             ++ip;
             break;
         }
         case OutputUncertaintyType::INPUT_DEPENDENT: {
             // Constant
-            outputParams[ip] = inputParams.uncertaintyConstant;
+            outputParams[ip] = inputParams.logUncertaintyConstant;
             ++ip;
 
             // Weights
@@ -119,7 +119,7 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
 
             // Relevance
             for (uint_t i = 0; i < m; ++i) {
-                outputParams[ip] = inputParams.uncertaintyBasisRelevances[i];
+                outputParams[ip] = inputParams.uncertaintyBasisLogRelevances[i];
                 ++ip;
             }
 
@@ -146,7 +146,7 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
 
     // Pseudo input relevances
     for (uint_t i = 0; i < m; ++i) {
-        outputParams.basisFunctionRelevances[i] = inputParams[ip];
+        outputParams.basisFunctionLogRelevances[i] = inputParams[ip];
         ++ip;
     }
 
@@ -230,13 +230,13 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
     // Output error parametrization
     switch (outputUncertaintyType_) {
         case OutputUncertaintyType::UNIFORM: {
-            outputParams.uncertaintyConstant = inputParams[ip];
+            outputParams.logUncertaintyConstant = inputParams[ip];
             ++ip;
             break;
         }
         case OutputUncertaintyType::INPUT_DEPENDENT: {
             // Constant
-            outputParams.uncertaintyConstant = inputParams[ip];
+            outputParams.logUncertaintyConstant = inputParams[ip];
             ++ip;
 
             // Weights
@@ -247,7 +247,7 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
 
             // Relevance
             for (uint_t i = 0; i < m; ++i) {
-                outputParams.uncertaintyBasisRelevances[i] = inputParams[ip];
+                outputParams.uncertaintyBasisLogRelevances[i] = inputParams[ip];
                 ++ip;
             }
 
@@ -263,7 +263,7 @@ void GPz::resizeHyperParameters_(HyperParameters& params) const {
     const uint_t d = numberFeatures_;
 
     params.basisFunctionPositions.resize(m,d);
-    params.basisFunctionRelevances.resize(m);
+    params.basisFunctionLogRelevances.resize(m);
     params.basisFunctionCovariances.resize(m);
     for (uint_t i = 0; i < m; ++i) {
         params.basisFunctionCovariances[i].resize(d,d);
@@ -273,7 +273,7 @@ void GPz::resizeHyperParameters_(HyperParameters& params) const {
     // when the covariance type is any of the GLOBAL_* types.
 
     params.uncertaintyBasisWeights.resize(m);
-    params.uncertaintyBasisRelevances.resize(m);
+    params.uncertaintyBasisLogRelevances.resize(m);
 }
 
 
@@ -808,7 +808,7 @@ void GPz::initializeBasisFunctions_() {
 void GPz::initializeBasisFunctionRelevances_() {
     const uint_t n = outputTrain_.rows();
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
-    parameters_.basisFunctionRelevances.fill(-outputLogVariance);
+    parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
 }
 
 void GPz::buildMissingCache_(const Mat2d& input) {
@@ -1135,13 +1135,13 @@ void GPz::initializeErrors_() {
 
     // Initialize constant term from variance of outputs
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
-    parameters_.uncertaintyConstant = outputLogVariance;
+    parameters_.logUncertaintyConstant = outputLogVariance;
 
     if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
         // Initialize basis function weights to zero
         for (uint_t i = 0; i < m; ++i) {
             parameters_.uncertaintyBasisWeights[i] = 0.0;
-            parameters_.uncertaintyBasisRelevances[i] = 0.0;
+            parameters_.uncertaintyBasisLogRelevances[i] = 0.0;
         }
     }
 }
@@ -1282,7 +1282,7 @@ Mat1d GPz::evaluateOutputErrors_(const Mat2d& basisFunctions) const {
 
     // Constant term
     for (uint_t i = 0; i < n; ++i) {
-        errors[i] = parameters_.uncertaintyConstant;
+        errors[i] = parameters_.logUncertaintyConstant;
     }
 
     if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
@@ -1309,18 +1309,17 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         logLikelihood_ = 0.0;
     }
 
+    // Pre-compute things
     updateTrainMissingCache_();
     updateTrainBasisFunctions_();
     updateTrainOutputErrors_();
 
-    // First step: update the log likelihood
-    // (and, if asked, also update some derivatives while we are at it)
-
-    Mat1d relevances = parameters_.basisFunctionRelevances.array().exp().matrix(); // GPzMatLab: alpha
-    Mat1d errorRelevances;
-    Mat1d errorWeightsSquared;
+    // Do the hard work...
+    Mat1d relevances = parameters_.basisFunctionLogRelevances.array().exp().matrix(); // GPzMatLab: alpha
+    Mat1d errorRelevances;     // GPzMatLab: tau
+    Mat1d errorWeightsSquared; // GPzMatLab: v.^2
     if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
-        errorRelevances = parameters_.uncertaintyBasisRelevances.array().exp().matrix();
+        errorRelevances = parameters_.uncertaintyBasisLogRelevances.array().exp().matrix();
         errorWeightsSquared = parameters_.uncertaintyBasisWeights.array().pow(2).matrix();
     }
 
@@ -1348,14 +1347,14 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
 
         logLikelihood_ = -0.5*(weightedDeviates.array()*deviates.array()).sum()
             -0.5*(relevances.array()*modelWeights_.array().pow(2)).sum()
-            +0.5*parameters_.basisFunctionRelevances.sum()
+            +0.5*parameters_.basisFunctionLogRelevances.sum()
             -0.5*computeLogDeterminant(svd)
             +0.5*((-trainOutputLogError_).array()*weightTrain_.array()).sum()
             -0.5*log(2.0*M_PI)*sumWeightTrain_;
 
         if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
             logLikelihood_ += -0.5*(errorWeightsSquared.array()*errorRelevances.array()).sum()
-                +0.5*parameters_.uncertaintyBasisRelevances.sum()
+                +0.5*parameters_.uncertaintyBasisLogRelevances.sum()
                 -0.5*m*log(2.0*M_PI);
         }
     }
@@ -1365,14 +1364,14 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // =============================
 
         Mat2d derivBasis = -weightedBasisFunctions*modelInvCovariance_
-            -weightedDeviates*modelWeights_.transpose();
+            -weightedDeviates*modelWeights_.transpose(); // GPzMatLab: dlnPHI
 
         // Derivative wrt relevance
         // ========================
 
         Mat1d dwda = -modelInvCovariance_*(relevances.array()*modelWeights_.array()).matrix();
 
-        derivatives_.basisFunctionRelevances = 0.5
+        derivatives_.basisFunctionLogRelevances = 0.5
             -0.5*modelInvCovariance_.diagonal().array()*relevances.array()
             -(trainBasisFunctions_.transpose()*weightedDeviates).array()*dwda.array()
             -relevances.array()*modelWeights_.array()*dwda.array()
@@ -1388,17 +1387,16 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // Do this in an explicit loop as all operations are component-wise, it's clearer
         for (uint_t i = 0; i < n; ++i) {
             derivOutputError[i] = -0.5*weightTrain_[i]*
-                (1.0 + trainOutputError[i]*(deviates[i]*deviates[i] + nu[i]));
+                (1.0 - trainOutputError[i]*(deviates[i]*deviates[i] + nu[i]));
         }
 
-        derivatives_.uncertaintyConstant = derivOutputError.sum();
+        derivatives_.logUncertaintyConstant = derivOutputError.sum();
 
         if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
             // Derivative wrt uncertainty weights
             // ==================================
 
-            Mat1d weightedRelevance = parameters_.uncertaintyBasisWeights.array()
-                *parameters_.uncertaintyBasisRelevances.array();
+            Mat1d weightedRelevance = parameters_.uncertaintyBasisWeights.array()*errorRelevances.array();
 
             derivatives_.uncertaintyBasisWeights = trainBasisFunctions_.transpose()*derivOutputError
                 -weightedRelevance;
@@ -1406,8 +1404,8 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             // Derivative wrt uncertainty relevances
             // =====================================
 
-            derivatives_.uncertaintyBasisRelevances = 0.5
-                -0.5*weightedRelevance.array()*parameters_.uncertaintyBasisRelevances.array();
+            derivatives_.uncertaintyBasisLogRelevances = 0.5
+            -0-0.5*weightedRelevance.array()*errorRelevances.array();
 
             // Contribution to derivative of basis functions
             // =============================================
@@ -1418,7 +1416,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // Derivatives wrt to basis positions & covariances
         // ================================================
 
-        derivBasis = derivBasis.array()*trainBasisFunctions_.array();
+        derivBasis = derivBasis.array()*trainBasisFunctions_.array(); // GPzMatLab: dPHI
 
         derivatives_.basisFunctionPositions.fill(0.0);
         for (uint_t i = 0; i < m; ++i) {

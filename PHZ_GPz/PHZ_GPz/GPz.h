@@ -245,12 +245,12 @@ class GPz {
     // ================
 
     struct HyperParameters {
-        Mat2d              basisFunctionPositions;     // GPz MatLab: P
-        Mat1d              basisFunctionRelevances;    // GPz MatLab: lnAlpha
-        std::vector<Mat2d> basisFunctionCovariances;   // GPz MatLab: Gamma
-        double             uncertaintyConstant = 0.0;  // GPz MatLab: b
-        Mat1d              uncertaintyBasisWeights;    // GPz MatLab: v
-        Mat1d              uncertaintyBasisRelevances; // GPz MatLab: lnTau
+        Mat2d              basisFunctionPositions;        // GPz MatLab: P
+        Mat1d              basisFunctionLogRelevances;    // GPz MatLab: lnAlpha
+        std::vector<Mat2d> basisFunctionCovariances;      // GPz MatLab: Gamma
+        double             logUncertaintyConstant = 0.0;  // GPz MatLab: b
+        Mat1d              uncertaintyBasisWeights;       // GPz MatLab: v
+        Mat1d              uncertaintyBasisLogRelevances; // GPz MatLab: lnTau
     };
 
     HyperParameters parameters_, derivatives_;
