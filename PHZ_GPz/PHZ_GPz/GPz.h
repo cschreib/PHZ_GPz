@@ -392,6 +392,8 @@ class GPz {
 
     void initializeFit_();
 
+    bool checkInputDimensions_(const Mat2d& input) const;
+
     bool checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const;
 
     // =======================

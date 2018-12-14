@@ -1166,6 +1166,10 @@ void GPz::initializeFit_() {
     // if it is not used by anything else but to initialize the covariances.
 }
 
+bool GPz::checkInputDimensions_(const Mat2d& input) const {
+    return static_cast<uint_t>(input.cols()) == numberFeatures_;
+}
+
 bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const {
     bool noError = inputError.size() == 0;
     bool errorSameSize = inputError.rows() == input.rows() && inputError.cols() == input.cols();
@@ -1678,7 +1682,7 @@ void GPz::setParameters(const Vec1d& newParameters) {
 
 Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check input is consistent
-    assert(input.cols() == numberFeatures_ && "input has incorrect dimension");
+    assert(checkInputDimensions_(input) && "input has incorrect dimension");
     assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
 
     // Check that we have a usable set of parameters to make predictions
