@@ -268,11 +268,11 @@ class GPz {
         uint_t             countMissing = 0;       // u, o = d - u
         std::vector<bool>  missing;                // [d]
         Mat2d              predictor;              // [u,o]
-        std::vector<Mat2d> invCovariancesObserved; // [o,o], GPz MatLab: Sigma
-        std::vector<Mat2d> covariancesObserved;    // [o,o], GPz MatLab: iSigma
-        double             covariancesObservedLogDeterminant;
+        std::vector<Mat2d> covariancesObserved;    // [o,o], GPz MatLab: Sigma(o,o)
+        std::vector<Mat2d> invCovariancesObserved; // [o,o], GPz MatLab: inv(Sigma(o,o))
+        Vec1d              covariancesObservedLogDeterminant;
         std::vector<Mat2d> gUO;                    // [u,o], GPz MatLab: GuuGuo
-        std::vector<Mat2d> dgO;                    // [u,o], GPz MatLab: dGo/diSoo
+        std::vector<Mat2d> dgO;                    // [:,o], GPz MatLab: dGo/diSoo
     };
 
     std::vector<MissingCacheElement> missingCache_;
@@ -375,6 +375,9 @@ class GPz {
     Vec1i findBestMissingID_(const Mat2d& input) const;
 
     void fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
+        char first, char second) const;
+
+    void addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElement& element,
         char first, char second) const;
 
     void buildLinearPredictorCache_(const Mat2d& input);
