@@ -45,6 +45,7 @@ namespace Minimize {
     struct Result {
         bool   success = false;
         Vec1d  parameters;
+        Vec1d  parametersBestValid;
         double metric = std::numeric_limits<double>::quiet_NaN();
         uint_t numberIterations = 0;
     };
@@ -60,6 +61,9 @@ namespace Minimize {
         // Initialize return value
         Result result;
         result.parameters.resize(initial.size());
+        if (options.hasValidation) {
+            result.parametersBestValid.resize(initial.size());
+        }
 
         const uint_t n = initial.size();
 
@@ -164,6 +168,10 @@ namespace Minimize {
                     if (valid[0] < bestValid) {
                         bestValid = valid[0];
                         noValidationImprovementAttempts = 0;
+
+                        for (uint_t i = 0; i < n; ++i) {
+                            result.parametersBestValid[i] = gsl_vector_get(m->x, i);
+                        }
                     } else {
                         ++noValidationImprovementAttempts;
                     }

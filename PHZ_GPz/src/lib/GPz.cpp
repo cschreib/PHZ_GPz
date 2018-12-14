@@ -1481,7 +1481,7 @@ void GPz::updateLikelihoodValid_() {
     updateValidBasisFunctions_();
     updateValidOutputErrors_();
 
-    // Do the hard work...
+    // Do the hard work... (simple Gaussian likelihood (model-obs)/errors ~ chi2)
     Mat1d deviates = validBasisFunctions_*modelWeights_ - inputValid_; // GPzMatLab: delta
 
     logLikelihoodValid_ = 0.0;
@@ -1642,7 +1642,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     options.minimizerTolerance = optimizationTolerance_;
     options.gradientTolerance = optimizationGradientTolerance_;
 
-    Minimize::minimizeBFGS(options, initialValues,
+    Minimize::Result result = Minimize::minimizeBFGS(options, initialValues,
         // Minimization function
         [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
 
@@ -1659,7 +1659,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
                 // Load new parameters
                 loadParametersArray_(vectorParameters, parameters_);
 
-                // Initialize cache for this iteration
+                // Update model
                 updateTrainModel_(requested);
 
                 Vec1d result(1+numberParameters_);
@@ -1683,6 +1683,22 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
             }
         }
     );
+
+    assert(result.success && "minimization failed");
+
+    if (inputValid_.rows() == 0) {
+        // No validation set, use the latest best model
+        loadParametersArray_(result.parameters, parameters_);
+    } else {
+        // Validation set provided, use the latest best model from the validation
+        loadParametersArray_(result.parametersBestValid, parameters_);
+    }
+
+    // Update model to best parameter set (and likelihood, for diagnostic)
+    updateTrainModel_(Minimize::FunctionOutput::METRIC_TRAIN);
+
+    // Update likelihood of the validation set (for diagnostic)
+    updateLikelihoodValid_();
 }
 
 // =================================
