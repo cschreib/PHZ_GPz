@@ -727,8 +727,8 @@ void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
 
     splitTrainValid_(input, inputError, output, weight);
     buildMissingCache_(inputTrain_);
-    missingTrain_ = findBestMissingID_(inputTrain_);
-    missingValid_ = findBestMissingID_(inputValid_);
+    missingTrain_ = getBestMissingID_(inputTrain_);
+    missingValid_ = getBestMissingID_(inputValid_);
 
     normalizeTrainingInputs_(inputTrain_, inputErrorTrain_, missingTrain_, outputTrain_, weightTrain_);
 
@@ -893,7 +893,7 @@ const GPz::MissingCacheElement& GPz::getMissingCacheElement_(int id) const {
     return *element;
 }
 
-Vec1i GPz::findBestMissingID_(const Mat2d& input) const {
+Vec1i GPz::getBestMissingID_(const Mat2d& input) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -1710,7 +1710,7 @@ Vec1d GPz::predict(Mat2d input, Mat2d inputError) const {
     assert(parameters_.basisFunctionPositions.rows() != 0 && "model is not initialized");
 
     // Detect missing data
-    Vec1i missing = findBestMissingID_(input);
+    Vec1i missing = getBestMissingID_(input);
 
     // Project input from real space to training space
     applyInputNormalization_(input, inputError);

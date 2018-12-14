@@ -376,7 +376,7 @@ class GPz {
 
     const MissingCacheElement& getMissingCacheElement_(int id) const;
 
-    Vec1i findBestMissingID_(const Mat2d& input) const;
+    Vec1i getBestMissingID_(const Mat2d& input) const;
 
     void fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
         char first, char second) const;
