@@ -391,6 +391,7 @@ void GPz::reset_() {
     validOutputLogError_.resize(0);
     modelWeights_.resize(0);
     modelInvCovariance_.resize(0,0);
+    modelInputPrior_.resize(0);
 }
 
 void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
@@ -1494,8 +1495,54 @@ void GPz::updateLikelihoodValid_() {
     logLikelihoodValid_ -= 0.5*log(2.0*M_PI);
 }
 
-void GPz::computePriors_() {
-    // TODO: placeholder
+void GPz::computeInputPriors_() {
+    const uint_t m = numberBasisFunctions_;
+    const uint_t n = inputTrain_.rows();
+    const uint_t d = numberFeatures_;
+
+    modelInputPrior_.resize(m);
+    modelInputPrior_.fill(1.0/m);
+
+    // Build the components of the gaussian mixture model that is used to
+    // fit the probability distribution of the input data.
+    // The GMM components Gaussians are taken to be the same as the best fit basis functions.
+    Mat2d gaussianMixtureComponents(n,m);
+    for (uint_t i = 0; i < n; ++i) {
+        const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
+
+        for (uint_t j = 0; j < m; ++j) {
+            // Reuse the basis functions, albeit normalized properly this time.
+            // (the GP doesn't care about the basis function normalization, but the GMM does).
+            double value = element.covariancesObservedLogDeterminant[j];
+            value += (d - element.countMissing)*log(2.0*M_PI);
+            value -= element.countMissing*log(2.0);
+
+            gaussianMixtureComponents(i,j) = exp(log(trainBasisFunctions_(i,j)) - 0.5*value);
+        }
+    }
+
+    // Iterative procedure to compute the priors on Gaussian Mixture model weights.
+    // This is solved using an Expectation-Maximization algorithm.
+    const uint_t maxPriorIterations = 100;
+    for (uint_t iter = 0; iter < maxPriorIterations; ++iter) {
+        Mat1d oldPrior = modelInputPrior_;
+
+        Mat2d weight = gaussianMixtureComponents;
+        for (uint_t i = 0; i < n; ++i) {
+            weight.row(i) *= modelInputPrior_;
+            double sum = weight.row(i).sum();
+            weight.row(i) /= sum;
+        }
+
+        modelInputPrior_= weight.colwise().mean();
+
+        double delta = (modelInputPrior_ - oldPrior).norm()/(modelInputPrior_ + oldPrior).norm();
+
+        if (delta < 1e-10) {
+            // Converged
+            break;
+        }
+    }
 }
 
 // ==============================
@@ -1704,8 +1751,8 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Update likelihood of the validation set (for diagnostic)
     updateLikelihoodValid_();
 
-    // Compute priors for predictions
-    computePriors_();
+    // Compute priors of input data distribution for predictions with missing variables
+    computeInputPriors_();
 }
 
 // =================================

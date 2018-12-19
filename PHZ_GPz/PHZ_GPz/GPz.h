@@ -333,10 +333,11 @@ class GPz {
     Mat1d validOutputLogError_; // GPzMatLab: beta
     Mat1d modelWeights_;        // GPzMatLab: w
     Mat2d modelInvCovariance_;  // GPzMatLab: iSigma_w
+    Mat1d modelInputPrior_;     // GPzMatLab: prior
 
     // ====================================
     // Internal functions: hyper-parameters
-    // ====================================ip
+    // ====================================
 
     Vec1d makeParameterArray_(const HyperParameters& inputParams) const;
 
@@ -433,7 +434,7 @@ class GPz {
 
     void updateLikelihoodValid_();
 
-    void computePriors_();
+    void computeInputPriors_();
 
     // ==============================
     // Internal functions: prediction
