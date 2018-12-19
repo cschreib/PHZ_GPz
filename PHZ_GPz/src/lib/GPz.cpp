@@ -1133,7 +1133,6 @@ void GPz::initializeCovariances_() {
 }
 
 void GPz::initializeErrors_() {
-    const uint_t m = numberBasisFunctions_;
     const uint_t n = inputTrain_.rows();
 
     // Initialize constant term from variance of outputs
@@ -1142,10 +1141,8 @@ void GPz::initializeErrors_() {
 
     if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
         // Initialize basis function weights to zero
-        for (uint_t i = 0; i < m; ++i) {
-            parameters_.uncertaintyBasisWeights[i] = 0.0;
-            parameters_.uncertaintyBasisLogRelevances[i] = 0.0;
-        }
+        parameters_.uncertaintyBasisWeights.fill(0.0);
+        parameters_.uncertaintyBasisLogRelevances.fill(0.0);
     }
 }
 
