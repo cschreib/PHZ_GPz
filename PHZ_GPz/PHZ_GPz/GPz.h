@@ -416,6 +416,8 @@ class GPz {
     // Internal functions: fit
     // =======================
 
+    Mat1d evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const;
+
     Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
     Mat1d evaluateOutputErrors_(const Mat2d& basisFunctions) const;

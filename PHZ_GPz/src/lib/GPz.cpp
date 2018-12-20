@@ -1241,41 +1241,54 @@ void GPz::updateValidOutputErrors_() {
     validOutputLogError_ = evaluateOutputErrors_(validBasisFunctions_);
 }
 
-Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
+
+    Mat1d funcs(m);
+    for (uint_t j = 0; j < m; ++j) {
+        Mat1d delta = input - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
+
+        double value = log(2.0)*element.countMissing;
+
+        Mat2d invCovariance; // GPzMatLab: inv(Sigma(o,o)) or inv(PsiPlusSigma)
+
+        if (inputError.rows() == 0) {
+            invCovariance = element.invCovariancesObserved[j];
+        } else {
+            Mat2d variance = inputError.asDiagonal(); // GPzMatLab: Psi(:,:,i)
+            Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
+            fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
+
+            Mat2d covariance = element.covariancesObserved[j] + varianceObserved; // GPzMatLab: PsiPlusSigma
+            invCovariance = computeInverseSymmetric(covariance);
+
+            value += computeLogDeterminant(covariance) - element.covariancesObservedLogDeterminant[j];
+        }
+
+        for (uint_t k = 0; k < d; ++k)
+        for (uint_t l = k; l < d; ++l) {
+            value += (l == k ? 1.0 : 2.0)*invCovariance(k,l)*delta[k]*delta[l];
+        }
+
+        funcs[j] = exp(-0.5*value);
+    }
+
+    return funcs;
+}
+
+Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
     const uint_t n = input.rows();
+    const uint_t m = numberBasisFunctions_;
 
     Mat2d funcs(n,m);
     for (uint_t i = 0; i < n; ++i) {
         const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
 
-        for (uint_t j = 0; j < m; ++j) {
-            Mat1d delta = input.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
-
-            double value = log(2.0)*element.countMissing;
-
-            Mat2d invCovariance; // GPzMatLab: inv(Sigma(o,o)) or inv(PsiPlusSigma)
-
-            if (inputError.rows() == 0) {
-                invCovariance = element.invCovariancesObserved[j];
-            } else {
-                Mat2d variance = inputError.row(i).asDiagonal(); // GPzMatLab: Psi(:,:,i)
-                Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
-                fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
-
-                Mat2d covariance = element.covariancesObserved[j] + varianceObserved; // GPzMatLab: PsiPlusSigma
-                invCovariance = computeInverseSymmetric(covariance);
-
-                value += computeLogDeterminant(covariance) - element.covariancesObservedLogDeterminant[j];
-            }
-
-            for (uint_t k = 0; k < d; ++k)
-            for (uint_t l = k; l < d; ++l) {
-                value += (l == k ? 1.0 : 2.0)*invCovariance(k,l)*delta[k]*delta[l];
-            }
-
-            funcs(i,j) = exp(-0.5*value);
+        if (inputError.rows() == 0) {
+            funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element);
+        } else {
+            funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element);
         }
     }
 
