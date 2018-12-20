@@ -1550,23 +1550,23 @@ void GPz::buildMissingCachePredict_() {
 }
 
 void GPz::predictFull_(const Mat1d& input, double& value, double& varianceTrainDensity,
-    double& varianceTrainNoise) {
+    double& varianceTrainNoise) const {
     // TODO: placeholder
 }
 
 void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError, double& value,
-    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) {
+    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
     // TODO: placeholder
 }
 
 void GPz::predictMissing_(const Mat1d& input, const MissingCacheElement& element, double& value,
-    double& varianceTrainDensity, double& varianceTrainNoise) {
+    double& varianceTrainDensity, double& varianceTrainNoise) const {
     // TODO: placeholder
 }
 
 void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
     const MissingCacheElement& element, double& value,
-    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) {
+    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
     // TODO: placeholder
 }
 
