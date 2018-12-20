@@ -727,7 +727,7 @@ void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
     Vec1d weight = computeWeights_(output);
 
     splitTrainValid_(input, inputError, output, weight);
-    buildMissingCache_(inputTrain_);
+    buildMissingCacheTrain_(inputTrain_);
     missingTrain_ = getBestMissingID_(inputTrain_);
     missingValid_ = getBestMissingID_(inputValid_);
 
@@ -814,7 +814,7 @@ void GPz::initializeBasisFunctionRelevances_() {
     parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
 }
 
-void GPz::buildMissingCache_(const Mat2d& input) {
+void GPz::buildMissingCacheTrain_(const Mat2d& input) {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -865,7 +865,7 @@ void GPz::buildMissingCache_(const Mat2d& input) {
 
 const GPz::MissingCacheElement* GPz::findMissingCacheElement_(int id) const {
     // Fast method, assumes the cache is sorted by increasing ID
-    // (true by construction as long as the implementation of buildMissingCache_() is not modified)
+    // (true by construction as long as the implementation of buildMissingCacheTrain_() is not modified)
 
     if (id > 0 && static_cast<uint_t>(id) < missingCache_.size()) {
         return &missingCache_[id];
@@ -1139,11 +1139,10 @@ void GPz::initializeErrors_() {
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
     parameters_.logUncertaintyConstant = outputLogVariance;
 
-    if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
-        // Initialize basis function weights to zero
-        parameters_.uncertaintyBasisWeights.fill(0.0);
-        parameters_.uncertaintyBasisLogRelevances.fill(0.0);
-    }
+    // Initialize basis function weights to zero
+    // (only optimized for OutputUncertaintyType::INPUT_DEPENDENT)
+    parameters_.uncertaintyBasisWeights.fill(0.0);
+    parameters_.uncertaintyBasisLogRelevances.fill(0.0);
 }
 
 void GPz::initializeFit_() {
@@ -1546,10 +1545,67 @@ void GPz::computeInputPriors_() {
 // Internal functions: prediction
 // ==============================
 
-GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& /* inputError */, const Vec1i& /* missing */) const {
-    GPzOutput result;
-
+void GPz::buildMissingCachePredict_() {
     // TODO: placeholder
+}
+
+void GPz::predictFull_(const Mat1d& input, double& value, double& varianceTrainDensity,
+    double& varianceTrainNoise) {
+    // TODO: placeholder
+}
+
+void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError, double& value,
+    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) {
+    // TODO: placeholder
+}
+
+void GPz::predictMissing_(const Mat1d& input, const MissingCacheElement& element, double& value,
+    double& varianceTrainDensity, double& varianceTrainNoise) {
+    // TODO: placeholder
+}
+
+void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
+    const MissingCacheElement& element, double& value,
+    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) {
+    // TODO: placeholder
+}
+
+GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+    const uint_t n = input.rows();
+    const bool noError = inputError.rows() == 0;
+
+    GPzOutput result;
+    result.value.resize(n);
+    result.varianceTrainDensity.resize(n);
+    result.varianceTrainNoise.resize(n);
+    result.varianceInputNoise.resize(n);
+
+    for (uint_t i = 0; i < n; ++i) {
+        const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
+
+        if (element.countMissing == 0) {
+            if (noError) {
+                predictFull_(input.row(i), result.value[i], result.varianceTrainDensity[i],
+                    result.varianceTrainNoise[i]);
+            } else {
+                predictNoisy_(input.row(i), inputError.row(i), result.value[i],
+                    result.varianceTrainDensity[i], result.varianceTrainNoise[i],
+                    result.varianceInputNoise[i]);
+            }
+        } else {
+            if (noError) {
+                predictMissing_(input.row(i), element, result.value[i], result.varianceTrainDensity[i],
+                    result.varianceTrainNoise[i]);
+            } else {
+                predictMissingNoisy_(input.row(i), inputError.row(i), element, result.value[i],
+                    result.varianceTrainDensity[i], result.varianceTrainNoise[i],
+                    result.varianceInputNoise[i]);
+            }
+        }
+    }
+
+    result.variance = result.varianceTrainDensity + result.varianceTrainNoise
+        + result.varianceInputNoise;
 
     return result;
 }
@@ -1750,6 +1806,9 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
     // Compute priors of input data distribution for predictions with missing variables
     computeInputPriors_();
+
+    // Update missing cache with elements needed for predictions
+    buildMissingCachePredict_();
 }
 
 // =================================

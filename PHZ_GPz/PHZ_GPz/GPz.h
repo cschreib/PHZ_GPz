@@ -384,7 +384,7 @@ class GPz {
 
     void initializeBasisFunctionRelevances_();
 
-    void buildMissingCache_(const Mat2d& input);
+    void buildMissingCacheTrain_(const Mat2d& input);
 
     const MissingCacheElement* findMissingCacheElement_(int id) const;
 
@@ -439,6 +439,8 @@ class GPz {
     // ==============================
     // Internal functions: prediction
     // ==============================
+
+    void buildMissingCachePredict_();
 
     GPzOutput predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
