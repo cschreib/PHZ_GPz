@@ -1255,11 +1255,11 @@ void GPz::updateValidBasisFunctions_() {
 }
 
 void GPz::updateTrainOutputErrors_() {
-    trainOutputLogError_ = evaluateOutputErrors_(trainBasisFunctions_);
+    trainOutputLogError_ = evaluateOutputLogErrors_(trainBasisFunctions_);
 }
 
 void GPz::updateValidOutputErrors_() {
-    validOutputLogError_ = evaluateOutputErrors_(validBasisFunctions_);
+    validOutputLogError_ = evaluateOutputLogErrors_(validBasisFunctions_);
 }
 
 Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
@@ -1316,15 +1316,25 @@ Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, 
     return funcs;
 }
 
-Mat1d GPz::evaluateOutputErrors_(const Mat2d& basisFunctions) const {
+double GPz::evaluateOutputLogError_(const Mat1d& basisFunctions) const {
+    // Constant term
+    double error = parameters_.logUncertaintyConstant;
+
+    if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
+        // Input-dependent parametrization using basis functions
+        error += basisFunctions.transpose()*parameters_.uncertaintyBasisWeights;
+    }
+
+    return error;
+}
+
+Mat1d GPz::evaluateOutputLogErrors_(const Mat2d& basisFunctions) const {
     const uint_t n = basisFunctions.rows();
 
     Mat1d errors(n);
 
     // Constant term
-    for (uint_t i = 0; i < n; ++i) {
-        errors[i] = parameters_.logUncertaintyConstant;
-    }
+    errors.fill(parameters_.logUncertaintyConstant);
 
     if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
         // Input-dependent parametrization using basis functions

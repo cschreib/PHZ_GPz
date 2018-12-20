@@ -420,7 +420,9 @@ class GPz {
 
     Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
-    Mat1d evaluateOutputErrors_(const Mat2d& basisFunctions) const;
+    double evaluateOutputLogError_(const Mat1d& basisFunctions) const;
+
+    Mat1d evaluateOutputLogErrors_(const Mat2d& basisFunctions) const;
 
     void updateTrainMissingCache_();
 
