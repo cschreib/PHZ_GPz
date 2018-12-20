@@ -944,6 +944,12 @@ void GPz::fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheEl
 
     const uint_t d = numberFeatures_;
 
+    // Early exit for no missing
+    if (first == 'o' && second == 'o' && element.countMissing == 0) {
+        out = in;
+        return;
+    }
+
     uint_t nfirst = 0;
     uint_t nsecond = 0;
     switch (first) {
@@ -960,6 +966,12 @@ void GPz::fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheEl
     }
 
     out.resize(nfirst, nsecond);
+
+    // Early exit for no missing
+    if ((first == 'u' || second == 'u') && element.countMissing == 0) {
+        return;
+    }
+
     for (uint_t j = 0, l = 0; j < d; ++j) {
         bool goodFirst = false;
         switch (first) {
@@ -994,6 +1006,15 @@ void GPz::addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElem
     char first, char second) const {
 
     const uint_t d = numberFeatures_;
+
+    // Early exit for no missing
+    if (first == 'o' && second == 'o' && element.countMissing == 0) {
+        out += in;
+        return;
+    }
+    if ((first == 'u' || second == 'u') && element.countMissing == 0) {
+        return;
+    }
 
     for (uint_t j = 0, l = 0; j < d; ++j) {
         bool goodFirst = false;
