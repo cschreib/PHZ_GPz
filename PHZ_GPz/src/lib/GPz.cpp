@@ -1593,12 +1593,18 @@ void GPz::buildMissingCachePredict_() {
     // TODO: placeholder
 }
 
-void GPz::predictFull_(const Mat1d& input, double& value, double& varianceTrainDensity,
-    double& varianceTrainNoise) const {
-    // TODO: placeholder
+void GPz::predictFull_(const Mat1d& input, const MissingCacheElement& element, double& value,
+    double& varianceTrainDensity, double& varianceTrainNoise) const {
+
+    Mat1d basis = evaluateBasisFunctions_(input, Mat1d{}, element);
+
+    value = basis.transpose()*modelWeights_;
+    varianceTrainDensity = basis.transpose()*modelInvCovariance_*basis;
+    varianceTrainNoise = exp(evaluateOutputLogError_(basis));
 }
 
-void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError, double& value,
+void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
+    const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
     // TODO: placeholder
 }
@@ -1629,10 +1635,10 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 
         if (element.countMissing == 0) {
             if (noError) {
-                predictFull_(input.row(i), result.value[i], result.varianceTrainDensity[i],
+                predictFull_(input.row(i), element, result.value[i], result.varianceTrainDensity[i],
                     result.varianceTrainNoise[i]);
             } else {
-                predictNoisy_(input.row(i), inputError.row(i), result.value[i],
+                predictNoisy_(input.row(i), inputError.row(i), element, result.value[i],
                     result.varianceTrainDensity[i], result.varianceTrainNoise[i],
                     result.varianceInputNoise[i]);
             }
