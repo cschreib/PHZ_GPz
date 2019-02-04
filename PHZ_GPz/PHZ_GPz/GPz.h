@@ -478,9 +478,6 @@ class GPz {
         const MissingCacheElement& element, double& value,
         double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;
 
-    void predictMissing_(const Mat1d& input, const MissingCacheElement& element, double& value,
-        double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;
-
     void predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
         const MissingCacheElement& element, double& value,
         double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;

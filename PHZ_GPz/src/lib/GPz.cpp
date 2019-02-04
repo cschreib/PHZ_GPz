@@ -1725,17 +1725,26 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 
-void GPz::predictMissing_(const Mat1d& input, const MissingCacheElement& element, double& value,
+void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
 
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
+    const uint_t nu = element.countMissing;
+    const uint_t no = d - nu;
+    const bool noError = inputError.rows() == 0;
 
     Mat2d filledInput(d,m); // GPzMatLab: X_hat
     Mat1d Pio(m); // GPzMatLab: Ex & Pio (combined)
+    std::vector<Mat2d> Psi_hat(m); // GPzMatLab: Psi_hat
 
     for (uint_t i = 0; i < m; ++i) {
-        Eigen::JacobiSVD<Mat2d> svd(element.covariancesObserved[i]);
+        Mat2d sigma = element.covariancesObserved[i];
+        if (!noError) {
+            sigma.diagonal() += inputError;
+        }
+
+        Eigen::JacobiSVD<Mat2d> svd(sigma);
         Mat1d position = parameters_.basisFunctionPositions.row(i);
         Mat1d Delta = input - position;
         Mat1d DeltaObserved;
@@ -1759,6 +1768,20 @@ void GPz::predictMissing_(const Mat1d& input, const MissingCacheElement& element
                 filledInput(j,i) = input[j];
             }
         }
+
+        if (noError) {
+            Psi_hat[i].resize(d,d);
+        } else {
+            Mat1d errorObserved;
+            fetchVectorElements_(errorObserved, inputError, element, 'o');
+            Mat2d t(d, no);
+            t.block(0,  0, no, no) = Mat2d::Identity(no, no);
+            t.block(no, 0, nu, no) = element.R[i].transpose();
+
+            Psi_hat[i] = t*errorObserved.asDiagonal()*t.transpose();
+        }
+
+        addMatrixElements_(element.Psi_hat[i], Psi_hat[i], element, 'u', 'u');
     }
 
     Pio /= Pio.sum();
@@ -1827,12 +1850,6 @@ void GPz::predictMissing_(const Mat1d& input, const MissingCacheElement& element
     varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 
-void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
-    const MissingCacheElement& element, double& value,
-    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
-    // TODO: placeholder
-}
-
 GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
     const uint_t n = input.rows();
     const uint_t m = numberBasisFunctions_;
@@ -1878,8 +1895,9 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
             }
         } else {
             if (noError) {
-                predictMissing_(input.row(i), element, result.value[i], result.varianceTrainDensity[i],
-                    result.varianceTrainNoise[i], result.varianceInputNoise[i]);
+                predictMissingNoisy_(input.row(i), Mat1d{}, element, result.value[i],
+                    result.varianceTrainDensity[i], result.varianceTrainNoise[i],
+                    result.varianceInputNoise[i]);
             } else {
                 predictMissingNoisy_(input.row(i), inputError.row(i), element, result.value[i],
                     result.varianceTrainDensity[i], result.varianceTrainNoise[i],
