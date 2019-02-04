@@ -76,6 +76,12 @@ namespace PHZ_GPz {
     }
 
     template<typename MatrixType>
+    Mat2d computeInverseSymmetric(const MatrixType& matrix, const Eigen::JacobiSVD<MatrixType>& svd) {
+        assert(matrix.rows() == matrix.cols() && "can only be called on symmetric matrices");
+        return svd.solve(MatrixType::Identity(matrix.rows(),matrix.rows()));
+    }
+
+    template<typename MatrixType>
     Mat2d computeInverseSymmetric(const MatrixType& matrix) {
         assert(matrix.rows() == matrix.cols() && "can only be called on symmetric matrices");
         Eigen::JacobiSVD<Mat2d> svd(matrix);

@@ -727,7 +727,7 @@ void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
     Vec1d weight = computeWeights_(output);
 
     splitTrainValid_(input, inputError, output, weight);
-    buildMissingCacheTrain_(inputTrain_);
+    buildMissingCache_(inputTrain_);
     missingTrain_ = getBestMissingID_(inputTrain_);
     missingValid_ = getBestMissingID_(inputValid_);
 
@@ -814,7 +814,7 @@ void GPz::initializeBasisFunctionRelevances_() {
     parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
 }
 
-void GPz::buildMissingCacheTrain_(const Mat2d& input) {
+void GPz::buildMissingCache_(const Mat2d& input) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -861,6 +861,15 @@ void GPz::buildMissingCacheTrain_(const Mat2d& input) {
         newCache.missing = missing;
         missingCache_.push_back(newCache);
     }
+
+    for (auto& e : missingCache_) {
+        if (e.countMissing == 0) {
+            noMissingCache_ = &e;
+            break;
+        }
+    }
+
+    assert(noMissingCache_ != nullptr && "bug: no missing cache with zero missing element");
 }
 
 const GPz::MissingCacheElement* GPz::findMissingCacheElement_(int id) const {
@@ -997,6 +1006,48 @@ void GPz::fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheEl
                 }
             }
 
+            ++l;
+        }
+    }
+}
+
+void GPz::fetchVectorElements_(Mat1d& out, const Mat1d& in, const MissingCacheElement& element,
+    char first) const {
+
+    const uint_t d = numberFeatures_;
+
+    // Early exit for no missing
+    if (first == 'o' && element.countMissing == 0) {
+        out = in;
+        return;
+    }
+
+    uint_t nfirst = 0;
+    switch (first) {
+        case ':': nfirst = d; break;
+        case 'u': nfirst = element.countMissing; break;
+        case 'o': nfirst = d - element.countMissing; break;
+        default : assert(false && "should not happen"); break;
+    }
+
+    out.resize(nfirst);
+
+    // Early exit for no missing
+    if (first == 'u' && element.countMissing == 0) {
+        return;
+    }
+
+    for (uint_t j = 0, l = 0; j < d; ++j) {
+        bool goodFirst = false;
+        switch (first) {
+            case ':': goodFirst = true; break;
+            case 'u': goodFirst = element.missing[j] == true; break;
+            case 'o': goodFirst = element.missing[j] == false; break;
+            default : assert(false && "should not happen"); break;
+        }
+
+        if (goodFirst) {
+            out[l] = in[j];
             ++l;
         }
     }
@@ -1200,7 +1251,7 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 // Internal functions: fit
 // =======================
 
-void GPz::updateTrainMissingCache_() {
+void GPz::updateMissingCache_(MissingCacheUpdate what) const {
     const uint_t m = numberBasisFunctions_;
 
     std::vector<Mat2d> isigma(m);
@@ -1212,11 +1263,17 @@ void GPz::updateTrainMissingCache_() {
     }
 
     for (auto& cacheItem : missingCache_) {
-        // Compute covariance matrices
         cacheItem.covariancesObserved.resize(m);
         cacheItem.invCovariancesObserved.resize(m);
-        cacheItem.gUO.resize(m);
-        cacheItem.dgO.resize(m);
+        cacheItem.covariancesObservedLogDeterminant.resize(m);
+        if (what == MissingCacheUpdate::TRAIN) {
+            cacheItem.gUO.resize(m);
+            cacheItem.dgO.resize(m);
+        } else if (what == MissingCacheUpdate::PREDICT) {
+            cacheItem.R.resize(m);
+            cacheItem.Psi_hat.resize(m);
+        }
+
         for (uint_t i = 0; i < m; ++i) {
             const Mat2d& fullGamma = parameters_.basisFunctionCovariances[i]; // GPzMatLab: Gamma(:,:,i)
 
@@ -1229,19 +1286,33 @@ void GPz::updateTrainMissingCache_() {
             // Compute log determinant
             cacheItem.covariancesObservedLogDeterminant[i] = computeLogDeterminant(cacheItem.covariancesObserved[i]);
 
-            // Compute gUO and dgO
-            Mat2d isigmaMissing;  // GPzMatLab: iSigma(u,u)
-            Mat2d isigmaObserved; // GPzMatLab: iSigma(u,o)
-            fetchMatrixElements_(isigmaMissing,  isigma[i], cacheItem, 'u', 'u');
-            fetchMatrixElements_(isigmaObserved, isigma[i], cacheItem, 'u', 'o');
+            if (what == MissingCacheUpdate::TRAIN) {
+                // Compute gUO and dgO (for training)
+                Mat2d isigmaMissing;  // GPzMatLab: iSigma(u,u)
+                Mat2d isigmaObserved; // GPzMatLab: iSigma(u,o)
+                fetchMatrixElements_(isigmaMissing,  isigma[i], cacheItem, 'u', 'u');
+                fetchMatrixElements_(isigmaObserved, isigma[i], cacheItem, 'u', 'o');
 
-            Mat2d gammaMissing;  // GPzMatLab: Gamma(:,u,i)
-            Mat2d gammaObserved; // GPzMatLab: Gamma(:,o,i)
-            fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
-            fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
+                Mat2d gammaMissing;  // GPzMatLab: Gamma(:,u,i)
+                Mat2d gammaObserved; // GPzMatLab: Gamma(:,o,i)
+                fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
+                fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
 
-            cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaObserved;
-            cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
+                cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaObserved;
+                cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
+            }
+
+            if (what == MissingCacheUpdate::PREDICT) {
+                // Compute R and Psi_hat (for prediction)
+                Mat2d sigmaMissing;  // GPzMatLab: Sigma(u,u)
+                Mat2d sigmaObserved; // GPzMatLab: Sigma(u,o)
+                fetchMatrixElements_(sigmaMissing,  sigma[i], cacheItem, 'u', 'u');
+                fetchMatrixElements_(sigmaObserved, sigma[i], cacheItem, 'u', 'o');
+
+                Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
+                cacheItem.R[i] = cholesky.solve(sigmaMissing.transpose());
+                cacheItem.Psi_hat[i] = sigmaMissing - sigmaObserved*cacheItem.R[i];
+            }
         }
     }
 }
@@ -1361,7 +1432,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     }
 
     // Pre-compute things
-    updateTrainMissingCache_();
+    updateMissingCache_(MissingCacheUpdate::TRAIN);
     updateTrainBasisFunctions_();
     updateTrainOutputErrors_();
 
@@ -1589,29 +1660,171 @@ void GPz::computeInputPriors_() {
 // Internal functions: prediction
 // ==============================
 
-void GPz::buildMissingCachePredict_() {
-    // TODO: placeholder
-}
-
 void GPz::predictFull_(const Mat1d& input, const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise) const {
 
+    // The simplest GPz case: no missing data, no noisy inputs
+
     Mat1d basis = evaluateBasisFunctions_(input, Mat1d{}, element);
 
-    value = basis.transpose()*modelWeights_;
-    varianceTrainDensity = basis.transpose()*modelInvCovariance_*basis;
-    varianceTrainNoise = exp(evaluateOutputLogError_(basis));
+    value = basis.transpose()*modelWeights_; // GPzMatLab: mu
+    varianceTrainDensity = basis.transpose()*modelInvCovariance_*basis; // GPzMatLab: nu
+    varianceTrainNoise = exp(evaluateOutputLogError_(basis)); // GPzMatLab: beta_i
 }
 
 void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
-    // TODO: placeholder
+
+    const uint_t m = numberBasisFunctions_;
+
+    // No missing data, but we have noisy inputs
+
+    Mat1d basis = evaluateBasisFunctions_(input, Mat1d{}, element);
+
+    value = basis.transpose()*modelWeights_; // GPzMatLab: mu
+
+    varianceTrainDensity = 0.0; // GPzMatLab: nu
+    varianceInputNoise = 0.0; // GPzMatLab: gamma
+    double VlnS = 0.0;
+
+    for (uint_t i = 0; i < m; ++i)
+    for (uint_t j = 0; j <= i; ++j) {
+        Mat2d iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
+
+        Eigen::JacobiSVD<Mat2d> svd(iCij);
+
+        Mat2d Cij = computeInverseSymmetric(iCij, svd);
+        Mat1d cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
+                  + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
+
+        cij = svd.solve(cij);
+
+        Mat1d Delta = parameters_.basisFunctionPositions.row(i)
+                    - parameters_.basisFunctionPositions.row(j);
+
+        // Now this is source-specific
+
+        Delta = input - cij;
+        Cij.diagonal() += inputError;
+        svd.compute(Cij);
+
+        double lnNxc = -0.5*svd.solve(Delta).transpose()*Delta - 0.5*computeLogDeterminant(svd);
+        double ZijNxc = exp(lnZ(i,j) + lnNxc);
+
+        double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
+        varianceTrainDensity += coef*modelInvCovariance_(i,j);
+        varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+        VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+    }
+
+    varianceInputNoise -= value*value;
+
+    double logError = evaluateOutputLogError_(basis);
+    VlnS -= pow(logError - parameters_.logUncertaintyConstant, 2);
+    varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 
 void GPz::predictMissing_(const Mat1d& input, const MissingCacheElement& element, double& value,
-    double& varianceTrainDensity, double& varianceTrainNoise) const {
-    // TODO: placeholder
+    double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
+
+    const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
+
+    Mat2d filledInput(d,m); // GPzMatLab: X_hat
+    Mat1d Pio(m); // GPzMatLab: Ex & Pio (combined)
+
+    for (uint_t i = 0; i < m; ++i) {
+        Eigen::JacobiSVD<Mat2d> svd(element.covariancesObserved[i]);
+        Mat1d position = parameters_.basisFunctionPositions.row(i);
+        Mat1d Delta = input - position;
+        Mat1d DeltaObserved;
+        fetchVectorElements_(DeltaObserved, Delta, element, 'o');
+
+        Pio[i] = -0.5*svd.solve(DeltaObserved).transpose()*DeltaObserved
+            -0.5*computeLogDeterminant(svd);
+        Pio[i] = exp(Pio[i])*modelInputPrior_[i];
+
+        Mat1d positionMissing; // GPzMatLab: P(i,~o)
+        fetchVectorElements_(positionMissing, position, element, 'u');
+
+        Mat1d inputNew = element.R[i]*DeltaObserved + positionMissing;
+
+        uint_t k = 0;
+        for (uint_t j = 0; j < d; ++j) {
+            if (element.missing[j]) {
+                filledInput(j,i) = inputNew[k];
+                ++k;
+            } else {
+                filledInput(j,i) = input[j];
+            }
+        }
+    }
+
+    Pio /= Pio.sum();
+
+    Mat1d basis(m); // GPzMatLab: PHI
+
+    varianceTrainDensity = 0.0; // GPzMatLab: nu
+    varianceInputNoise = 0.0; // GPzMatLab: gamma
+    double VlnS = 0.0;
+
+    for (uint_t i = 0; i < m; ++i)
+    for (uint_t j = 0; j <= i; ++j) {
+        Mat2d iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
+
+        Eigen::JacobiSVD<Mat2d> svd(iCij);
+
+        Mat2d Cij = computeInverseSymmetric(iCij, svd);
+        Mat1d cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
+                  + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
+
+        cij = svd.solve(cij);
+
+        Mat1d Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i);
+        Mat2d Sij = noMissingCache_->covariancesObserved[i] + element.Psi_hat[j];
+        svd.compute(Sij);
+        double N = exp(-0.5*svd.solve(Delta).transpose()*Delta
+                -0.5*computeLogDeterminant(svd));
+
+        basis[i] += (i == j ? 1.0 : 2.0)*N*Pio[j];
+
+        Delta = filledInput.col(i) - parameters_.basisFunctionPositions.row(j);
+        Sij = noMissingCache_->covariancesObserved[j] + element.Psi_hat[i];
+        svd.compute(Sij);
+        N = exp(-0.5*svd.solve(Delta).transpose()*Delta
+                -0.5*computeLogDeterminant(svd));
+
+        basis[j] += (i == j ? 1.0 : 2.0)*N*Pio[i];
+
+        double EcCij = 0.0;
+        for (uint_t l = 0; l < m; ++l) {
+            Delta = filledInput.col(l) - cij;
+            Sij = Cij + element.Psi_hat[l];
+            svd.compute(Sij);
+            N = exp(-0.5*svd.solve(Delta).transpose()*Delta
+                    -0.5*computeLogDeterminant(svd));
+
+            EcCij += N*Pio[l];
+        }
+
+        double Zij = exp(lnZ(i,j))*EcCij;
+
+        double coef = (i == j ? 1.0 : 2.0)*Zij;
+        varianceTrainDensity += coef*modelInvCovariance_(i,j);
+        varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+        VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+    }
+
+    basis.array() *= exp(noMissingCache_->covariancesObservedLogDeterminant);
+
+    value = basis.transpose()*modelWeights_; // GPzMatLab: mu
+
+    varianceInputNoise -= value*value;
+
+    double logError = evaluateOutputLogError_(basis);
+    VlnS -= pow(logError - parameters_.logUncertaintyConstant, 2);
+    varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 
 void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
@@ -1622,6 +1835,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
 
 GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
     const uint_t n = input.rows();
+    const uint_t m = numberBasisFunctions_;
     const bool noError = inputError.rows() == 0;
 
     GPzOutput result;
@@ -1630,6 +1844,26 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
     result.varianceTrainNoise.resize(n);
     result.varianceInputNoise.resize(n);
 
+    // Compute cached variables
+    lnZ.resize(m,m); {
+        for (uint_t i = 0; i < m; ++i)
+        for (uint_t j = 0; j <= i; ++j) {
+            Mat2d Sij = noMissingCache_->covariancesObserved[i]
+                +noMissingCache_->covariancesObserved[j];
+
+            Eigen::JacobiSVD<Mat2d> svd(Sij);
+
+            Mat1d Delta = parameters_.basisFunctionPositions.row(i)
+                        - parameters_.basisFunctionPositions.row(j);
+
+            lnZ(i,j) = -0.5*noMissingCache_->covariancesObservedLogDeterminant[i]
+                -0.5*noMissingCache_->covariancesObservedLogDeterminant[j]
+                -0.5*svd.solve(Delta).transpose()*Delta
+                -0.5*computeLogDeterminant(svd);
+        }
+    }
+
+    // Iterate over galaxies
     for (uint_t i = 0; i < n; ++i) {
         const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
 
@@ -1645,7 +1879,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
         } else {
             if (noError) {
                 predictMissing_(input.row(i), element, result.value[i], result.varianceTrainDensity[i],
-                    result.varianceTrainNoise[i]);
+                    result.varianceTrainNoise[i], result.varianceInputNoise[i]);
             } else {
                 predictMissingNoisy_(input.row(i), inputError.row(i), element, result.value[i],
                     result.varianceTrainDensity[i], result.varianceTrainNoise[i],
@@ -1856,9 +2090,6 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
     // Compute priors of input data distribution for predictions with missing variables
     computeInputPriors_();
-
-    // Update missing cache with elements needed for predictions
-    buildMissingCachePredict_();
 }
 
 // =================================
@@ -1886,6 +2117,9 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     assert(parameters_.basisFunctionPositions.rows() != 0 && "model is not initialized");
 
     // Detect missing data
+    buildMissingCache_(input);
+    updateMissingCache_(MissingCacheUpdate::PREDICT);
+
     Vec1i missing = getBestMissingID_(input);
 
     // Project input from real space to training space

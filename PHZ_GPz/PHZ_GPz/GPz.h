@@ -277,18 +277,32 @@ class GPz {
     double outputMean_ = 0.0;  // GPz MatLab: muY
 
     struct MissingCacheElement {
+        // Base data
+
         int                id = 0;
         uint_t             countMissing = 0;       // u, o = d - u
         std::vector<bool>  missing;                // [d]
+
+        // For initialization
+
         Mat2d              predictor;              // [u,o]
+
+        // For training
+
         std::vector<Mat2d> covariancesObserved;    // [o,o], GPz MatLab: Sigma(o,o)
         std::vector<Mat2d> invCovariancesObserved; // [o,o], GPz MatLab: inv(Sigma(o,o))
-        Vec1d              covariancesObservedLogDeterminant;
+        Vec1d              covariancesObservedLogDeterminant; // GPz MatLab: lnz
         std::vector<Mat2d> gUO;                    // [u,o], GPz MatLab: GuuGuo
         std::vector<Mat2d> dgO;                    // [:,o], GPz MatLab: dGo/diSoo
+
+        // For prediction
+
+        std::vector<Mat2d> Psi_hat;                // [:,:], GPz MatLab: Psi_hat
+        std::vector<Mat2d> R;                      // [:,:], GPz MatLab: R
     };
 
-    std::vector<MissingCacheElement> missingCache_;
+    mutable std::vector<MissingCacheElement> missingCache_;
+    mutable MissingCacheElement* noMissingCache_ = nullptr;
 
     Vec1d  featurePCAMean_;
     Vec1d  featurePCASigma_;
@@ -334,6 +348,12 @@ class GPz {
     Mat1d modelWeights_;        // GPzMatLab: w
     Mat2d modelInvCovariance_;  // GPzMatLab: iSigma_w
     Mat1d modelInputPrior_;     // GPzMatLab: prior
+
+    // ===========================
+    // Prediction cached variables
+    // ===========================
+
+    mutable Mat2d lnZ; // GPz MatLab: lnZij
 
     // ====================================
     // Internal functions: hyper-parameters
@@ -384,7 +404,7 @@ class GPz {
 
     void initializeBasisFunctionRelevances_();
 
-    void buildMissingCacheTrain_(const Mat2d& input);
+    void buildMissingCache_(const Mat2d& input) const;
 
     const MissingCacheElement* findMissingCacheElement_(int id) const;
 
@@ -394,6 +414,9 @@ class GPz {
 
     void fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
         char first, char second) const;
+
+    void fetchVectorElements_(Mat1d& out, const Mat1d& in, const MissingCacheElement& element,
+        char first) const;
 
     void addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElement& element,
         char first, char second) const;
@@ -424,7 +447,11 @@ class GPz {
 
     Mat1d evaluateOutputLogErrors_(const Mat2d& basisFunctions) const;
 
-    void updateTrainMissingCache_();
+    enum class MissingCacheUpdate {
+        TRAIN, PREDICT
+    };
+
+    void updateMissingCache_(MissingCacheUpdate what) const;
 
     void updateTrainBasisFunctions_();
 
@@ -444,8 +471,6 @@ class GPz {
     // Internal functions: prediction
     // ==============================
 
-    void buildMissingCachePredict_();
-
     void predictFull_(const Mat1d& input, const MissingCacheElement& element, double& value,
         double& varianceTrainDensity, double& varianceTrainNoise) const;
 
@@ -454,7 +479,7 @@ class GPz {
         double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;
 
     void predictMissing_(const Mat1d& input, const MissingCacheElement& element, double& value,
-        double& varianceTrainDensity, double& varianceTrainNoise) const;
+        double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;
 
     void predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
         const MissingCacheElement& element, double& value,
