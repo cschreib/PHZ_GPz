@@ -1146,7 +1146,7 @@ void GPz::buildLinearPredictorCache_() {
         // Extract sub-blocks of the PCASigma matrix
         // sigma(observed,missing) and sigma(observed,observed)
         Mat2d sigmaMissing, sigmaObserved;
-        fetchMatrixElements_(sigmaMissing, featurePCASigma_, cacheItem, 'o', 'u');
+        fetchMatrixElements_(sigmaMissing,  featurePCASigma_, cacheItem, 'o', 'u');
         fetchMatrixElements_(sigmaObserved, featurePCASigma_, cacheItem, 'o', 'o');
 
         // Compute Cholesky decomposition of sigma(observed,observed)
@@ -1507,9 +1507,9 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     Mat2d modelCovariance = weightedBasisFunctions.transpose()*trainBasisFunctions_
         + relevances.asDiagonal().toDenseMatrix(); // GPzMatLab: SIGMA
 
-    Eigen::JacobiSVD<Mat2d> svd(modelCovariance);
+    Eigen::JacobiSVD<Mat2d> svd(modelCovariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-    modelInvCovariance_ = svd.solve(Mat2d::Identity(m,m));
+    modelInvCovariance_ = computeInverseSymmetric(modelCovariance, svd);
     modelWeights_ = modelInvCovariance_*weightedBasisFunctions.transpose()*inputTrain_;
 
     Mat1d deviates = trainBasisFunctions_*modelWeights_ - inputTrain_; // GPzMatLab: delta
@@ -1744,7 +1744,7 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     for (uint_t j = 0; j <= i; ++j) {
         Mat2d iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
 
-        Eigen::JacobiSVD<Mat2d> svd(iCij);
+        Eigen::JacobiSVD<Mat2d> svd(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
         Mat2d Cij = computeInverseSymmetric(iCij, svd);
         Mat1d cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
@@ -1796,7 +1796,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
             sigma.diagonal() += inputError;
         }
 
-        Eigen::JacobiSVD<Mat2d> svd(sigma);
+        Eigen::JacobiSVD<Mat2d> svd(sigma, Eigen::ComputeThinU | Eigen::ComputeThinV);
         Mat1d position = parameters_.basisFunctionPositions.row(i);
         Mat1d Delta = input - position;
         Mat1d DeltaObserved;
@@ -1848,7 +1848,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
     for (uint_t j = 0; j <= i; ++j) {
         Mat2d iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
 
-        Eigen::JacobiSVD<Mat2d> svd(iCij);
+        Eigen::JacobiSVD<Mat2d> svd(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
         Mat2d Cij = computeInverseSymmetric(iCij, svd);
         Mat1d cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
@@ -1920,7 +1920,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
             Mat2d Sij = noMissingCache_->covariancesObserved[i]
                 +noMissingCache_->covariancesObserved[j];
 
-            Eigen::JacobiSVD<Mat2d> svd(Sij);
+            Eigen::JacobiSVD<Mat2d> svd(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
             Mat1d Delta = parameters_.basisFunctionPositions.row(i)
                         - parameters_.basisFunctionPositions.row(j);
