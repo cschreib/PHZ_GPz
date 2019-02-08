@@ -28,6 +28,7 @@
 #include "PHZ_GPz/EigenWrapper.h"
 
 #include <limits>
+#include <iostream>
 #include <gsl/gsl_multimin.h>
 
 namespace PHZ_GPz {
@@ -40,6 +41,7 @@ namespace Minimize {
         uint_t maxIterations = 1000;
         bool   hasValidation = false;
         uint_t maxValidationAttempts = 5;
+        bool   verbose = false;
     };
 
     struct Result {
@@ -123,6 +125,14 @@ namespace Minimize {
         uint_t noValidationImprovementAttempts = 0;
 
         try {
+            if (options.verbose) {
+                std::cout << "iter: 0, metric train: --";
+                if (options.hasValidation) {
+                    std::cout << ", metric valid: -- (best: --)";
+                }
+                std::cout << "\r" << std::flush;
+            }
+
             // Initial conditions
             x = gsl_vector_alloc(n);
             for (uint_t i = 0; i < n; ++i) {
@@ -138,6 +148,7 @@ namespace Minimize {
 
             // Minimization loop
             int status;
+            double currentValid = 0.0;
 
             do {
                 ++result.numberIterations;
@@ -159,14 +170,14 @@ namespace Minimize {
                     break;
                 }
 
-                for (uint_t i = 0; i < n; ++i) {
-                    xEigen[i] = gsl_vector_get(m->x, i);
-                }
-
                 if (options.hasValidation) {
-                    Vec1d valid = function(xEigen, FunctionOutput::METRIC_VALID);
-                    if (valid[0] < bestValid) {
-                        bestValid = valid[0];
+                    for (uint_t i = 0; i < n; ++i) {
+                        xEigen[i] = gsl_vector_get(m->x, i);
+                    }
+
+                    currentValid = function(xEigen, FunctionOutput::METRIC_VALID)[0];
+                    if (currentValid < bestValid) {
+                        bestValid = currentValid;
                         noValidationImprovementAttempts = 0;
 
                         for (uint_t i = 0; i < n; ++i) {
@@ -181,7 +192,27 @@ namespace Minimize {
                         break;
                     }
                 }
+
+                if (options.verbose) {
+                    std::cout << "iter: " << result.numberIterations
+                        << ", metric train: " << m->f;
+                    if (options.hasValidation) {
+                        std::cout << ", metric valid: " << currentValid
+                            << " (best: " << bestValid << ")";
+                    }
+                    std::cout << "\r" << std::flush;
+                }
             } while (status == GSL_CONTINUE && result.numberIterations < options.maxIterations);
+
+            if (options.verbose) {
+                std::cout << "iter: " << result.numberIterations
+                    << ", metric train: " << m->f;
+                if (options.hasValidation) {
+                    std::cout << ", metric valid: " << currentValid
+                        << " (best: " << bestValid << ")";
+                }
+                std::cout << std::endl;
+            }
 
             // Write output
             for (uint_t i = 0; i < n; ++i) {

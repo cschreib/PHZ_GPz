@@ -2128,12 +2128,17 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Build vector with initial values for hyper-parameter
     Vec1d initialValues = makeParameterArray_(parameters_);
 
+    if (verbose_) {
+        std::cout << "starting optimization of model" << std::endl;
+    }
+
     // Use BFGS for minimization
     Minimize::Options options;
     options.maxIterations = optimizationMaxIterations_;
     options.hasValidation = inputValid_.rows() != 0;
     options.minimizerTolerance = optimizationTolerance_;
     options.gradientTolerance = optimizationGradientTolerance_;
+    options.verbose = verbose_;
 
     Minimize::Result result = Minimize::minimizeBFGS(options, initialValues,
         // Minimization function
