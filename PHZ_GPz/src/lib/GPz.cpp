@@ -1158,7 +1158,7 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) c
         }
 
         // Fill in missing data
-        Mat1d missingFilled = observed*cache.predictor;
+        Mat1d missingFilled = observed.transpose()*cache.predictor;
         for (uint_t j = 0, k = 0; j < d; ++j) {
             if (cache.missing[j] && std::isnan(input(i,j))) {
                 input(i,j) = missingFilled[k] + featurePCAMean_[j];
