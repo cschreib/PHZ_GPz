@@ -355,7 +355,7 @@ void GPz::resizeArrays_() {
     }
 
     featurePCAMean_.resize(d);
-    featurePCASigma_.resize(d,d);
+    featurePCASigma_.resize(d);
     featurePCABasisVectors_.resize(d,d);
 }
 
