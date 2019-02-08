@@ -583,6 +583,14 @@ public:
 
     uint_t getInitialPositionSeed() const;
 
+    void setCovarianceType(CovarianceType type);
+
+    CovarianceType getCovarianceType() const;
+
+    void setOutputUncertaintyType(OutputUncertaintyType type);
+
+    OutputUncertaintyType getOutputUncertaintyType() const;
+
     void setOptimizationMaxIterations(uint_t maxIterations);
 
     uint_t getOptimizationMaxIterations() const;

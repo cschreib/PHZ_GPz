@@ -2085,6 +2085,22 @@ uint_t GPz::getInitialPositionSeed() const {
     return seedPositions_;
 }
 
+void GPz::setCovarianceType(CovarianceType type) {
+    covarianceType_ = type;
+}
+
+CovarianceType GPz::getCovarianceType() const {
+    return covarianceType_;
+}
+
+void GPz::setOutputUncertaintyType(OutputUncertaintyType type) {
+    outputUncertaintyType_ = type;
+}
+
+OutputUncertaintyType GPz::getOutputUncertaintyType() const {
+    return outputUncertaintyType_;
+}
+
 void GPz::setOptimizationMaxIterations(uint_t maxIterations) {
     optimizationMaxIterations_ = maxIterations;
 }
