@@ -834,7 +834,7 @@ void GPz::initializeBasisFunctions_() {
 
     // Add data mean
     for (uint_t i = 0; i < m; ++i) {
-        parameters_.basisFunctionPositions.row(i) += featurePCAMean_.matrix();
+        parameters_.basisFunctionPositions.row(i) += featurePCAMean_.matrix().transpose();
     }
 
     if (verbose_) {
@@ -1402,7 +1402,7 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
 
     Mat1d funcs(m);
     for (uint_t j = 0; j < m; ++j) {
-        Mat1d delta = input - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
+        Mat1d delta = input - parameters_.basisFunctionPositions.row(j).transpose(); // GPzMatLab: Delta(i,:)
 
         double value = log(2.0)*element.countMissing;
 
@@ -1441,9 +1441,9 @@ Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, 
         const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
 
         if (inputError.rows() == 0) {
-            funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element);
+            funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element).transpose();
         } else {
-            funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element);
+            funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element).transpose();
         }
     }
 
@@ -1636,7 +1636,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
 
                 // Derivative wrt to basis positions
                 // =================================
-                derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*delta*invCovariance;
+                derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*delta.transpose()*invCovariance;
 
                 // Derivative wrt to basis covariances
                 // =================================
@@ -1706,12 +1706,12 @@ void GPz::computeInputPriors_() {
 
         Mat2d weight = gaussianMixtureComponents;
         for (uint_t i = 0; i < n; ++i) {
-            weight.row(i) *= modelInputPrior_;
+            weight.array().row(i) *= modelInputPrior_.array().transpose();
             double sum = weight.row(i).sum();
             weight.row(i) /= sum;
         }
 
-        modelInputPrior_= weight.colwise().mean();
+        modelInputPrior_ = weight.colwise().mean();
 
         double delta = (modelInputPrior_ - oldPrior).norm()/(modelInputPrior_ + oldPrior).norm();
 
@@ -1865,12 +1865,12 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         Eigen::JacobiSVD<Mat2d> svd(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
         Mat2d Cij = computeInverseSymmetric(iCij, svd);
-        Mat1d cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
-                  + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
+        Mat1d cij = element.invCovariancesObserved[i]*parameters_.basisFunctionPositions.row(i)
+                  + element.invCovariancesObserved[j]*parameters_.basisFunctionPositions.row(j);
 
         cij = svd.solve(cij);
 
-        Mat1d Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i);
+        Mat1d Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i).transpose();
         Mat2d Sij = noMissingCache_->covariancesObserved[i] + Psi_hat[j];
         svd.compute(Sij);
         double N = exp(-0.5*svd.solve(Delta).transpose()*Delta
@@ -1878,7 +1878,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
 
         basis[i] += (i == j ? 1.0 : 2.0)*N*Pio[j];
 
-        Delta = filledInput.col(i) - parameters_.basisFunctionPositions.row(j);
+        Delta = filledInput.col(i) - parameters_.basisFunctionPositions.row(j).transpose();
         Sij = noMissingCache_->covariancesObserved[j] + Psi_hat[i];
         svd.compute(Sij);
         N = exp(-0.5*svd.solve(Delta).transpose()*Delta
