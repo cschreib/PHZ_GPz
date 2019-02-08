@@ -1399,6 +1399,8 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
+    Eigen::JacobiSVD<Mat2d> svd;
+
     Mat1d funcs(m);
     for (uint_t j = 0; j < m; ++j) {
         Mat1d delta = input - parameters_.basisFunctionPositions.row(j).transpose(); // GPzMatLab: Delta(i,:)
@@ -1410,14 +1412,17 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
         if (inputError.rows() == 0) {
             invCovariance = element.invCovariancesObserved[j];
         } else {
-            Mat2d variance = inputError.asDiagonal(); // GPzMatLab: Psi(:,:,i)
-            Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
-            fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
+            Mat1d varianceObserved;
+            fetchVectorElements_(varianceObserved, inputError, element, 'o');
 
-            Mat2d covariance = element.covariancesObserved[j] + varianceObserved; // GPzMatLab: PsiPlusSigma
-            invCovariance = computeInverseSymmetric(covariance);
+            Mat2d covariance = element.covariancesObserved[j]; // GPzMatLab: PsiPlusSigma
+            for (uint_t k = 0; k < d - element.countMissing; ++k) {
+                covariance(k,k) += varianceObserved[k];
+            }
 
-            value += computeLogDeterminant(covariance) - element.covariancesObservedLogDeterminant[j];
+            svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            invCovariance = computeInverseSymmetric(covariance, svd);
+            value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
         }
 
         for (uint_t k = 0; k < d; ++k)
