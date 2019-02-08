@@ -1871,7 +1871,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         cij = svd.solve(cij);
 
         Mat1d Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i);
-        Mat2d Sij = noMissingCache_->covariancesObserved[i] + element.Psi_hat[j];
+        Mat2d Sij = noMissingCache_->covariancesObserved[i] + Psi_hat[j];
         svd.compute(Sij);
         double N = exp(-0.5*svd.solve(Delta).transpose()*Delta
                 -0.5*computeLogDeterminant(svd));
@@ -1879,7 +1879,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         basis[i] += (i == j ? 1.0 : 2.0)*N*Pio[j];
 
         Delta = filledInput.col(i) - parameters_.basisFunctionPositions.row(j);
-        Sij = noMissingCache_->covariancesObserved[j] + element.Psi_hat[i];
+        Sij = noMissingCache_->covariancesObserved[j] + Psi_hat[i];
         svd.compute(Sij);
         N = exp(-0.5*svd.solve(Delta).transpose()*Delta
                 -0.5*computeLogDeterminant(svd));
@@ -1889,7 +1889,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         double EcCij = 0.0;
         for (uint_t l = 0; l < m; ++l) {
             Delta = filledInput.col(l) - cij;
-            Sij = Cij + element.Psi_hat[l];
+            Sij = Cij + Psi_hat[l];
             svd.compute(Sij);
             N = exp(-0.5*svd.solve(Delta).transpose()*Delta
                     -0.5*computeLogDeterminant(svd));
