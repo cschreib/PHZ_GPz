@@ -1148,6 +1148,8 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) c
     for (uint_t i = 0; i < n; ++i) {
         const MissingCacheElement& cache = getMissingCacheElement_(missing[i]);
 
+        if (cache.countMissing == 0) continue;
+
         // Consolidate observed bands in one array
         Mat1d observed(d - cache.countMissing);
         for (uint_t j = 0, k = 0; j < d; ++j) {
