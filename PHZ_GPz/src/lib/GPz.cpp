@@ -632,11 +632,14 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
             std::cout << "not using a validation set" << std::endl;
         }
     } else {
-        // Randomly shuffle the data
-        std::mt19937 seed(seedTrainSplit_);
         std::vector<uint_t> indices(input.rows());
         std::iota(indices.begin(), indices.end(), 0u);
-        std::shuffle(indices.begin(), indices.end(), seed);
+
+        if (trainValidSplitMethod_ == TrainValidationSplitMethod::RANDOM) {
+            // Randomly shuffle the data
+            std::mt19937 seed(seedTrainSplit_);
+            std::shuffle(indices.begin(), indices.end(), seed);
+        }
 
         uint_t numberTrain = round(input.rows()*trainValidRatio_);
         assert(numberTrain != 0 && "cannot have zero training data points");
@@ -2048,6 +2051,14 @@ void GPz::setNormalizationScheme(NormalizationScheme scheme) {
 
 NormalizationScheme GPz::getNormalizationScheme() const {
     return normalizationScheme_;
+}
+
+void GPz::setTrainValidationSplitMethod(TrainValidationSplitMethod method) {
+    trainValidSplitMethod_ = method;
+}
+
+TrainValidationSplitMethod GPz::getTrainValidationSplitMethod() const {
+    return trainValidSplitMethod_;
 }
 
 void GPz::setTrainValidationRatio(double ratio) {

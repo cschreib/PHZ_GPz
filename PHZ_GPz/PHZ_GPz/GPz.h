@@ -197,6 +197,23 @@ enum class NormalizationScheme {
  */
 
 /**
+ * @brief Method for splitting training and validation data
+ */
+enum class TrainValidationSplitMethod {
+    RANDOM,
+    SEQUENTIAL
+};
+
+/** \var PHZ_GPz::TrainValidationSplitMethod::RANDOM
+ * @brief The training and validation data will be drawn at random from the input data (default).
+ */
+
+/** \var PHZ_GPz::TrainValidationSplitMethod::SEQUENTIAL
+ * @brief The training data will be drawn from the first part of the input data,
+ *        and validation from the second part.
+ */
+
+/**
  * @struct GPzOutput
  * @brief Store the output of a GPz run
  *
@@ -224,18 +241,19 @@ class GPz {
     // Configuration variables
     // =======================
 
-    uint_t                numberBasisFunctions_ = 100;
-    PriorMeanFunction     priorMean_ = PriorMeanFunction::CONSTANT_PREPROCESS;
-    CovarianceType        covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
-    OutputUncertaintyType outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
-    WeightingScheme       weightingScheme_ = WeightingScheme::BALANCED;
-    NormalizationScheme   normalizationScheme_ = NormalizationScheme::WHITEN;
-    double                balancedWeightingBinSize_ = 0.1;
-    double                trainValidRatio_ = 0.5;
-    uint_t                optimizationMaxIterations_ = 200;
-    double                optimizationTolerance_ = 1e-1;
-    double                optimizationGradientTolerance_ = 1e-5;
-    bool                  verbose_ = false;
+    uint_t                     numberBasisFunctions_ = 100;
+    PriorMeanFunction          priorMean_ = PriorMeanFunction::CONSTANT_PREPROCESS;
+    CovarianceType             covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
+    OutputUncertaintyType      outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
+    WeightingScheme            weightingScheme_ = WeightingScheme::BALANCED;
+    NormalizationScheme        normalizationScheme_ = NormalizationScheme::WHITEN;
+    TrainValidationSplitMethod trainValidSplitMethod_ = TrainValidationSplitMethod::RANDOM;
+    double                     balancedWeightingBinSize_ = 0.1;
+    double                     trainValidRatio_ = 0.5;
+    uint_t                     optimizationMaxIterations_ = 200;
+    double                     optimizationTolerance_ = 1e-1;
+    double                     optimizationGradientTolerance_ = 1e-5;
+    bool                       verbose_ = false;
 
     // ==================
     // Indexing variables
@@ -548,6 +566,10 @@ public:
     void setNormalizationScheme(NormalizationScheme scheme);
 
     NormalizationScheme getNormalizationScheme() const;
+
+    void setTrainValidationSplitMethod(TrainValidationSplitMethod method);
+
+    TrainValidationSplitMethod getTrainValidationSplitMethod() const;
 
     void setTrainValidationRatio(double ratio);
 
