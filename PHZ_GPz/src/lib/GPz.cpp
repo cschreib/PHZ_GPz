@@ -617,7 +617,7 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
     } else {
         // Randomly shuffle the data
         std::mt19937 seed(seedTrainSplit_);
-        std::vector<uint_t> indices(input.cols());
+        std::vector<uint_t> indices(input.rows());
         std::iota(indices.begin(), indices.end(), 0u);
         std::shuffle(indices.begin(), indices.end(), seed);
 
