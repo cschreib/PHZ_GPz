@@ -341,6 +341,14 @@ void GPz::updateNumberParameters_() {
             break;
         }
     }
+
+    if (verbose_) {
+        std::cout << "the fit has " << numberParameters_ << " parameters" << std::endl;
+        std::cout << " - " << indexBasisRelevance_ - indexBasisPosition_ << " BF positions" << std::endl;
+        std::cout << " - " << indexBasisCovariance_ - indexBasisRelevance_<< " BF relevances" << std::endl;
+        std::cout << " - " << indexError_ - indexBasisCovariance_ << " BF covariances" << std::endl;
+        std::cout << " - " << numberParameters_ - indexError_ << " for output error" << std::endl;
+    }
 }
 
 void GPz::resizeArrays_() {
@@ -828,12 +836,20 @@ void GPz::initializeBasisFunctions_() {
     for (uint_t i = 0; i < m; ++i) {
         parameters_.basisFunctionPositions.row(i) += featurePCAMean_.matrix();
     }
+
+    if (verbose_) {
+        std::cout << "initialized BF positions" << std::endl;
+    }
 }
 
 void GPz::initializeBasisFunctionRelevances_() {
     const uint_t n = outputTrain_.rows();
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
     parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
+
+    if (verbose_) {
+        std::cout << "initialized BF relevances" << std::endl;
+    }
 }
 
 void GPz::buildMissingCache_(const Mat2d& input) const {
@@ -1231,6 +1247,10 @@ void GPz::initializeCovariances_() {
             break;
         }
     }
+
+    if (verbose_) {
+        std::cout << "initialized BF covariances" << std::endl;
+    }
 }
 
 void GPz::initializeErrors_() {
@@ -1244,6 +1264,10 @@ void GPz::initializeErrors_() {
     // (only optimized for OutputUncertaintyType::INPUT_DEPENDENT)
     parameters_.uncertaintyBasisWeights.fill(0.0);
     parameters_.uncertaintyBasisLogRelevances.fill(0.0);
+
+    if (verbose_) {
+        std::cout << "initialized output errors" << std::endl;
+    }
 }
 
 void GPz::initializeFit_() {
@@ -1259,6 +1283,10 @@ void GPz::initializeFit_() {
 
     // TODO: we could free the memory used by the predictor cache here,
     // if it is not used by anything else but to initialize the covariances.
+
+    if (verbose_) {
+        std::cout << "initialized all fit parameters" << std::endl;
+    }
 }
 
 bool GPz::checkInputDimensions_(const Mat2d& input) const {
