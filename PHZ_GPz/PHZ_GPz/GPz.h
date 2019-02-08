@@ -503,22 +503,22 @@ public:
     /**
      * @brief Copy constructor
      */
-    GPz(const GPz&) = default;
+    GPz(const GPz&) = delete;
 
     /**
      * @brief Move constructor
      */
-    GPz(GPz&&) = default;
+    GPz(GPz&&) = delete;
 
     /**
      * @brief Copy assignment operator
      */
-    GPz& operator=(const GPz&) = default;
+    GPz& operator=(const GPz&) = delete;
 
     /**
      * @brief Move assignment operator
      */
-    GPz& operator=(GPz&&) = default;
+    GPz& operator=(GPz&&) = delete;
 
     // =============================
     // Configuration getters/setters
