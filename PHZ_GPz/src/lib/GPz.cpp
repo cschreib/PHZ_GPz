@@ -1305,6 +1305,7 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 
 void GPz::updateMissingCache_(MissingCacheUpdate what) const {
     const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
 
     std::vector<Mat2d> isigma(m);
     std::vector<Mat2d> sigma(m);
@@ -1339,31 +1340,41 @@ void GPz::updateMissingCache_(MissingCacheUpdate what) const {
             cacheItem.covariancesObservedLogDeterminant[i] = computeLogDeterminant(cacheItem.covariancesObserved[i]);
 
             if (what == MissingCacheUpdate::TRAIN) {
-                // Compute gUO and dgO (for training)
-                Mat2d isigmaMissing;  // GPzMatLab: iSigma(u,u)
-                Mat2d isigmaObserved; // GPzMatLab: iSigma(u,o)
-                fetchMatrixElements_(isigmaMissing,  isigma[i], cacheItem, 'u', 'u');
-                fetchMatrixElements_(isigmaObserved, isigma[i], cacheItem, 'u', 'o');
+                if (cacheItem.countMissing != 0) {
+                    // Compute gUO and dgO (for training)
+                    Mat2d isigmaMissing;  // GPzMatLab: iSigma(u,u)
+                    Mat2d isigmaObserved; // GPzMatLab: iSigma(u,o)
+                    fetchMatrixElements_(isigmaMissing,  isigma[i], cacheItem, 'u', 'u');
+                    fetchMatrixElements_(isigmaObserved, isigma[i], cacheItem, 'u', 'o');
 
-                Mat2d gammaMissing;  // GPzMatLab: Gamma(:,u,i)
-                Mat2d gammaObserved; // GPzMatLab: Gamma(:,o,i)
-                fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
-                fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
+                    Mat2d gammaMissing;  // GPzMatLab: Gamma(:,u,i)
+                    Mat2d gammaObserved; // GPzMatLab: Gamma(:,o,i)
+                    fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
+                    fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
 
-                cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaObserved;
-                cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
+                    cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaObserved;
+                    cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
+                } else {
+                    cacheItem.gUO[i].resize(0,0);
+                    cacheItem.dgO[i] = 2*fullGamma;
+                }
             }
 
             if (what == MissingCacheUpdate::PREDICT) {
-                // Compute R and Psi_hat (for prediction)
-                Mat2d sigmaMissing;  // GPzMatLab: Sigma(u,u)
-                Mat2d sigmaObserved; // GPzMatLab: Sigma(u,o)
-                fetchMatrixElements_(sigmaMissing,  sigma[i], cacheItem, 'u', 'u');
-                fetchMatrixElements_(sigmaObserved, sigma[i], cacheItem, 'u', 'o');
+                if (cacheItem.countMissing != 0) {
+                    // Compute R and Psi_hat (for prediction)
+                    Mat2d sigmaMissing;  // GPzMatLab: Sigma(u,u)
+                    Mat2d sigmaObserved; // GPzMatLab: Sigma(u,o)
+                    fetchMatrixElements_(sigmaMissing,  sigma[i], cacheItem, 'u', 'u');
+                    fetchMatrixElements_(sigmaObserved, sigma[i], cacheItem, 'u', 'o');
 
-                Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
-                cacheItem.R[i] = cholesky.solve(sigmaMissing.transpose());
-                cacheItem.Psi_hat[i] = sigmaMissing - sigmaObserved*cacheItem.R[i];
+                    Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
+                    cacheItem.R[i] = cholesky.solve(sigmaMissing.transpose());
+                    cacheItem.Psi_hat[i] = sigmaMissing - sigmaObserved*cacheItem.R[i];
+                } else {
+                    cacheItem.R[i].resize(0,0);
+                    cacheItem.Psi_hat[i].resize(0,0);
+                }
             }
         }
     }
@@ -1631,8 +1642,11 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
                 // =================================
                 Mat2d dgO = element.dgO[j]*derivInvCovariance;
                 addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
-                dgO = -dgO*element.gUO[j].transpose();
-                addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+
+                if (element.countMissing != 0) {
+                    Mat2d dgU = -dgO*element.gUO[j].transpose();
+                    addMatrixElements_(dgU, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                }
             }
         }
     }
