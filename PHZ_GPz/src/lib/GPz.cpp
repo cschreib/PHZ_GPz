@@ -732,7 +732,8 @@ void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
     missingTrain_ = getBestMissingID_(inputTrain_);
     missingValid_ = getBestMissingID_(inputValid_);
 
-    normalizeTrainingInputs_(inputTrain_, inputErrorTrain_, missingTrain_, outputTrain_, weightTrain_);
+    normalizeTrainingInputs_(inputTrain_, inputErrorTrain_, missingTrain_,
+        outputTrain_, weightTrain_);
 
     applyInputNormalization_(inputValid_, inputErrorValid_);
     applyOutputNormalization_(inputValid_, missingValid_, outputValid_);
@@ -1220,7 +1221,6 @@ void GPz::initializeErrors_() {
 
 void GPz::initializeFit_() {
     // Create arrays, matrices, etc.
-    setNumberOfFeatures(inputTrain_.cols());
     updateNumberParameters_();
     resizeArrays_();
 
@@ -2042,6 +2042,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
 
     // Normalize the inputs
+    setNumberOfFeatures(input.cols());
     initializeInputs_(std::move(input), std::move(inputError), std::move(output));
 
     // Setup the fit, initialize arrays, etc.
