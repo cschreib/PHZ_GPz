@@ -615,6 +615,10 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         inputErrorValid_.resize(0,0);
         outputValid_.resize(0);
         weightValid_.resize(0);
+
+        if (verbose_) {
+            std::cout << "not using a validation set" << std::endl;
+        }
     } else {
         // Randomly shuffle the data
         std::mt19937 seed(seedTrainSplit_);
@@ -674,6 +678,11 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         }
 
         sumWeightValid_ = weightValid_.sum();
+
+        if (verbose_) {
+            std::cout << "split fitting data into " << inputTrain_.rows() << " for training and "
+                << inputValid_.rows() << " for validation" << std::endl;
+        }
     }
 }
 
@@ -1944,6 +1953,10 @@ PriorMeanFunction GPz::getPriorMeanFunction() const {
 
 void GPz::setNumberOfFeatures(uint_t num) {
     if (num != numberFeatures_) {
+        if (verbose_) {
+            std::cout << "setting number of features to " << num << std::endl;
+        }
+
         numberFeatures_ = num;
         reset_();
     }
@@ -2040,6 +2053,14 @@ bool GPz::getVerboseMode() const {
 void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Check inputs are consistent
     assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
+
+    if (verbose_) {
+        std::cout << "begin fitting with " << input.rows() << " data points" << std::endl;
+        std::cout << "found " << input.cols() << " features" << std::endl;
+        if (inputError.rows() != 0) {
+            std::cout << "found uncertainties for the features" << std::endl;
+        }
+    }
 
     // Normalize the inputs
     setNumberOfFeatures(input.cols());
