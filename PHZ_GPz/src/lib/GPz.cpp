@@ -738,13 +738,20 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 }
 
 void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
+    // Compute weights and split training/valid
     Vec1d weight = computeWeights_(output);
-
     splitTrainValid_(input, inputError, output, weight);
+
+    // Setup missing cache
     buildMissingCache_(inputTrain_);
     missingTrain_ = getBestMissingID_(inputTrain_);
     missingValid_ = getBestMissingID_(inputValid_);
 
+    // Create arrays, matrices, etc.
+    updateNumberParameters_();
+    resizeArrays_();
+
+    // Apply normalizations
     normalizeTrainingInputs_(inputTrain_, inputErrorTrain_, missingTrain_,
         outputTrain_, weightTrain_);
 
@@ -1233,10 +1240,6 @@ void GPz::initializeErrors_() {
 }
 
 void GPz::initializeFit_() {
-    // Create arrays, matrices, etc.
-    updateNumberParameters_();
-    resizeArrays_();
-
     // Pre-compute some things
     computeTrainingPCA_();
     buildLinearPredictorCache_();
