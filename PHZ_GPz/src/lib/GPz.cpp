@@ -370,7 +370,7 @@ void GPz::reset_() {
     missingCache_.clear();
 
     featurePCAMean_.resize(0);
-    featurePCASigma_.resize(0,0);
+    featurePCASigma_.resize(0);
     featurePCABasisVectors_.resize(0,0);
 
     decorrelationCoefficients_.resize(0);
