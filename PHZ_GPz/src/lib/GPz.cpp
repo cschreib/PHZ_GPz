@@ -892,13 +892,18 @@ void GPz::buildMissingCache_(const Mat2d& input) const {
     }
 
     assert(noMissingCache_ != nullptr && "bug: no missing cache with zero missing element");
+
+    if (verbose_) {
+        std::cout << "missing data cache built (" << missingCache_.size() << " combinations found)"
+            << std::endl;
+    }
 }
 
 const GPz::MissingCacheElement* GPz::findMissingCacheElement_(int id) const {
     // Fast method, assumes the cache is sorted by increasing ID
     // (true by construction as long as the implementation of buildMissingCacheTrain_() is not modified)
 
-    if (id > 0 && static_cast<uint_t>(id) < missingCache_.size()) {
+    if (id >= 0 && static_cast<uint_t>(id) < missingCache_.size()) {
         return &missingCache_[id];
     } else {
         return nullptr;
