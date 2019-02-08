@@ -355,8 +355,12 @@ void GPz::resizeArrays_() {
     }
 
     featurePCAMean_.resize(d);
-    featurePCASigma_.resize(d);
+    featurePCASigma_.resize(d,d);
     featurePCABasisVectors_.resize(d,d);
+
+    if (verbose_) {
+        std::cout << "allocated memory for fit parameters" << std::endl;
+    }
 }
 
 void GPz::reset_() {
@@ -370,7 +374,7 @@ void GPz::reset_() {
     missingCache_.clear();
 
     featurePCAMean_.resize(0);
-    featurePCASigma_.resize(0);
+    featurePCASigma_.resize(0,0);
     featurePCABasisVectors_.resize(0,0);
 
     decorrelationCoefficients_.resize(0);

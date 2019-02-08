@@ -306,7 +306,7 @@ class GPz {
     mutable MissingCacheElement* noMissingCache_ = nullptr;
 
     Vec1d  featurePCAMean_;
-    Vec1d  featurePCASigma_;
+    Mat2d  featurePCASigma_;
     Mat2d  featurePCABasisVectors_;
 
     Mat1d  decorrelationCoefficients_;
