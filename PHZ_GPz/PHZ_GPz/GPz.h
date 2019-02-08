@@ -235,6 +235,7 @@ class GPz {
     uint_t                optimizationMaxIterations_ = 200;
     double                optimizationTolerance_ = 1e-1;
     double                optimizationGradientTolerance_ = 1e-5;
+    bool                  verbose_ = false;
 
     // ==================
     // Indexing variables
@@ -571,6 +572,10 @@ public:
     void setOptimizationGradientTolerance(double tolerance);
 
     double getOptimizationGradientTolerance() const;
+
+    void setVerboseMode(bool verbose);
+
+    bool getVerboseMode() const;
 
     // =====================
     // Fit/training function

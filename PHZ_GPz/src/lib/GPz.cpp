@@ -23,6 +23,7 @@
 
 #include "PHZ_GPz/GPz.h"
 #include <random>
+#include <iostream>
 #include <Eigen/Eigenvalues>
 
 namespace PHZ_GPz {
@@ -2022,6 +2023,14 @@ void GPz::setOptimizationGradientTolerance(double tolerance) {
 
 double GPz::getOptimizationGradientTolerance() const {
     return optimizationGradientTolerance_;
+}
+
+void GPz::setVerboseMode(bool verbose) {
+    verbose_ = verbose;
+}
+
+bool GPz::getVerboseMode() const {
+    return verbose_;
 }
 
 // =====================
