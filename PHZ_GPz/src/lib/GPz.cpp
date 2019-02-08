@@ -1305,7 +1305,6 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 
 void GPz::updateMissingCache_(MissingCacheUpdate what) const {
     const uint_t m = numberBasisFunctions_;
-    const uint_t d = numberFeatures_;
 
     std::vector<Mat2d> isigma(m);
     std::vector<Mat2d> sigma(m);
