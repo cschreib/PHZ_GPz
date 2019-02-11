@@ -1529,9 +1529,9 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     Eigen::JacobiSVD<Mat2d> svd(modelCovariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
     modelInvCovariance_ = computeInverseSymmetric(modelCovariance, svd);
-    modelWeights_ = modelInvCovariance_*weightedBasisFunctions.transpose()*inputTrain_;
+    modelWeights_ = modelInvCovariance_*weightedBasisFunctions.transpose()*outputTrain_.matrix();
 
-    Mat1d deviates = trainBasisFunctions_*modelWeights_ - inputTrain_; // GPzMatLab: delta
+    Mat1d deviates = trainBasisFunctions_*modelWeights_ - outputTrain_; // GPzMatLab: delta
     Mat1d weightedDeviates = (dataWeight.array()*deviates.array()).matrix(); // GpzMatLab: omega_beta_x_delta
 
     if (updateLikelihood) {
