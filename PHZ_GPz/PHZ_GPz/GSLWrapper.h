@@ -42,6 +42,7 @@ namespace Minimize {
         bool   hasValidation = false;
         uint_t maxValidationAttempts = 5;
         bool   verbose = false;
+        bool   verboseSingleLine = false;
     };
 
     struct Result {
@@ -125,7 +126,7 @@ namespace Minimize {
         uint_t noValidationImprovementAttempts = 0;
 
         try {
-            if (options.verbose) {
+            if (options.verbose && options.verboseSingleLine) {
                 std::cout << "iter: 0, metric train: --";
                 if (options.hasValidation) {
                     std::cout << ", metric valid: -- (best: --)";
@@ -200,7 +201,12 @@ namespace Minimize {
                         std::cout << ", metric valid: " << currentValid
                             << " (best: " << bestValid << ")";
                     }
-                    std::cout << "\r" << std::flush;
+
+                    if (options.verboseSingleLine) {
+                        std::cout << "\r" << std::flush;
+                    } else {
+                        std::cout << std::endl;
+                    }
                 }
             } while (status == GSL_CONTINUE && result.numberIterations < options.maxIterations);
 
