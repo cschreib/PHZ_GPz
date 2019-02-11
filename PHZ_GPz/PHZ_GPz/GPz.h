@@ -253,7 +253,6 @@ struct GPzModel {
 
     // Configuration
     PriorMeanFunction     priorMean = PriorMeanFunction::CONSTANT_PREPROCESS;
-    CovarianceType        covarianceType = CovarianceType::VARIABLE_COVARIANCE;
     OutputUncertaintyType outputUncertaintyType = OutputUncertaintyType::INPUT_DEPENDENT;
     NormalizationScheme   normalizationScheme = NormalizationScheme::WHITEN;
 

@@ -2259,7 +2259,6 @@ void GPz::loadModel(const GPzModel& model) {
     setNumberOfBasisFunctions(model.modelWeights.size());
     setNumberOfFeatures(model.featureMean.size());
     setPriorMeanFunction(model.priorMean);
-    setCovarianceType(model.covarianceType);
     setOutputUncertaintyType(model.outputUncertaintyType);
     setNormalizationScheme(model.normalizationScheme);
 
@@ -2277,7 +2276,6 @@ GPzModel GPz::getModel() const {
     GPzModel model;
 
     model.priorMean = priorMean_;
-    model.covarianceType = covarianceType_;
     model.outputUncertaintyType = outputUncertaintyType_;
     model.normalizationScheme = normalizationScheme_;
 
