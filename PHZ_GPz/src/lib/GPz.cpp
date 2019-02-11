@@ -1964,6 +1964,8 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
             if (noError) {
                 predictFull_(input.row(i), element, result.value[i], result.varianceTrainDensity[i],
                     result.varianceTrainNoise[i]);
+
+                result.varianceInputNoise[i] = 0.0;
             } else {
                 predictNoisy_(input.row(i), inputError.row(i), element, result.value[i],
                     result.varianceTrainDensity[i], result.varianceTrainNoise[i],
