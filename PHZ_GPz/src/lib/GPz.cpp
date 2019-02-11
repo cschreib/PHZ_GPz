@@ -34,7 +34,7 @@ namespace PHZ_GPz {
 // Internal functions: hyper-parameters
 // ====================================
 
-Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
+Vec1d GPz::makeParameterArray_(const GPzHyperParameters& inputParams) const  {
     Vec1d outputParams(numberParameters_);
 
     const uint_t m = numberBasisFunctions_;
@@ -135,7 +135,7 @@ Vec1d GPz::makeParameterArray_(const HyperParameters& inputParams) const  {
     return outputParams;
 }
 
-void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& outputParams) const {
+void GPz::loadParametersArray_(const Vec1d& inputParams, GPzHyperParameters& outputParams) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
@@ -261,7 +261,7 @@ void GPz::loadParametersArray_(const Vec1d& inputParams, HyperParameters& output
     assert(ip == static_cast<uint_t>(inputParams.size()) && "bug in parameter array (load)");
 }
 
-void GPz::resizeHyperParameters_(HyperParameters& params) const {
+void GPz::resizeHyperParameters_(GPzHyperParameters& params) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
@@ -374,8 +374,8 @@ void GPz::resizeArrays_() {
 }
 
 void GPz::reset_() {
-    parameters_ = HyperParameters{};
-    derivatives_ = HyperParameters{};
+    parameters_ = GPzHyperParameters{};
+    derivatives_ = GPzHyperParameters{};
 
     featureMean_.resize(0);
     featureSigma_.resize(0);
@@ -2248,16 +2248,46 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     }
 }
 
-// =================================
-// Fit/training result getter/setter
-// =================================
+// ========================
+// Fit model loading/saving
+// ========================
 
-Vec1d GPz::getParameters() const {
-    return makeParameterArray_(parameters_);
+void GPz::loadModel(const GPzModel& model) {
+    setNumberOfBasisFunctions(model.modelWeights.size());
+    setNumberOfFeatures(model.featureMean.size());
+    setPriorMeanFunction(model.priorMean);
+    setCovarianceType(model.covarianceType);
+    setOutputUncertaintyType(model.outputUncertaintyType);
+    setNormalizationScheme(model.normalizationScheme);
+
+    featureMean_ = model.featureMean;
+    featureSigma_ = model.featureSigma;
+    outputMean_ = model.outputMean;
+
+    parameters_ = model.parameters;
+    modelWeights_ = model.modelWeights;
+    modelInvCovariance_ = model.modelInvCovariance;
+    modelInputPrior_ = model.modelInputPrior;
 }
 
-void GPz::setParameters(const Vec1d& newParameters) {
-    loadParametersArray_(newParameters, parameters_);
+GPzModel GPz::getModel() const {
+    GPzModel model;
+
+    model.priorMean = priorMean_;
+    model.covarianceType = covarianceType_;
+    model.outputUncertaintyType = outputUncertaintyType_;
+    model.normalizationScheme = normalizationScheme_;
+
+    model.featureMean = featureMean_;
+    model.featureSigma = featureSigma_;
+    model.outputMean = outputMean_;
+
+    model.parameters = parameters_;
+    model.modelWeights = modelWeights_;
+    model.modelInvCovariance = modelInvCovariance_;
+    model.modelInputPrior = modelInputPrior_;
+
+    return model;
 }
 
 // ===================

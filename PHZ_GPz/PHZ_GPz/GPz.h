@@ -226,6 +226,46 @@ struct GPzOutput {
     Vec1d varianceInputNoise;   /// Predicted variance due to input noise
 };
 
+/**
+ * @struct GPzHyperParameters
+ * @brief Store the set of hyperparameters of a GPz run
+ *
+ */
+struct GPzHyperParameters {
+    Mat2d              basisFunctionPositions;        // GPz MatLab: P
+    Mat1d              basisFunctionLogRelevances;    // GPz MatLab: lnAlpha
+    std::vector<Mat2d> basisFunctionCovariances;      // GPz MatLab: Gamma
+    double             logUncertaintyConstant = 0.0;  // GPz MatLab: b
+    Mat1d              uncertaintyBasisWeights;       // GPz MatLab: v
+    Mat1d              uncertaintyBasisLogRelevances; // GPz MatLab: lnTau
+};
+
+/**
+ * @struct GPzModel
+ * @brief Store the training state of a GPz run
+ *
+ */
+struct GPzModel {
+    // Projection of input/output space
+    Vec1d featureMean;
+    Vec1d featureSigma;
+    double outputMean = 0.0;
+
+    // Configuration
+    PriorMeanFunction     priorMean = PriorMeanFunction::CONSTANT_PREPROCESS;
+    CovarianceType        covarianceType = CovarianceType::VARIABLE_COVARIANCE;
+    OutputUncertaintyType outputUncertaintyType = OutputUncertaintyType::INPUT_DEPENDENT;
+    NormalizationScheme   normalizationScheme = NormalizationScheme::WHITEN;
+
+    // Fit hyper-parameters
+    GPzHyperParameters parameters;
+
+    // Fit parameters
+    Vec1d modelWeights;
+    Vec2d modelInvCovariance;
+    Vec1d modelInputPrior;
+};
+
 // =========
 // GPz class
 // =========
@@ -276,16 +316,7 @@ class GPz {
     // Hyper-parameters
     // ================
 
-    struct HyperParameters {
-        Mat2d              basisFunctionPositions;        // GPz MatLab: P
-        Mat1d              basisFunctionLogRelevances;    // GPz MatLab: lnAlpha
-        std::vector<Mat2d> basisFunctionCovariances;      // GPz MatLab: Gamma
-        double             logUncertaintyConstant = 0.0;  // GPz MatLab: b
-        Mat1d              uncertaintyBasisWeights;       // GPz MatLab: v
-        Mat1d              uncertaintyBasisLogRelevances; // GPz MatLab: lnTau
-    };
-
-    HyperParameters parameters_, derivatives_;
+    GPzHyperParameters parameters_, derivatives_;
 
     // ====================
     // Projection variables
@@ -378,11 +409,11 @@ class GPz {
     // Internal functions: hyper-parameters
     // ====================================
 
-    Vec1d makeParameterArray_(const HyperParameters& inputParams) const;
+    Vec1d makeParameterArray_(const GPzHyperParameters& inputParams) const;
 
-    void loadParametersArray_(const Vec1d& inputParams, HyperParameters& outputParams) const;
+    void loadParametersArray_(const Vec1d& inputParams, GPzHyperParameters& outputParams) const;
 
-    void resizeHyperParameters_(HyperParameters& params) const;
+    void resizeHyperParameters_(GPzHyperParameters& params) const;
 
     // ==================================
     // Internal functions: initialization
@@ -613,13 +644,13 @@ public:
 
     void fit(Mat2d input, Mat2d inputError, Vec1d output);
 
-    // =================================
-    // Fit/training result getter/setter
-    // =================================
+    // ========================
+    // Fit model loading/saving
+    // ========================
 
-    Vec1d getParameters() const;
+    void loadModel(const GPzModel& model);
 
-    void setParameters(const Vec1d& newParameters);
+    GPzModel getModel() const;
 
     // ===================
     // Prediction function
