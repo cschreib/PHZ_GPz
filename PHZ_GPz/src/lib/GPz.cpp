@@ -493,6 +493,7 @@ void GPz::computeWhitening_(const Mat2d& input) {
 
         // Compute standard deviation (filtering out missing data)
         featureSigma_[j] = 0.0;
+        count = 0;
         for (uint_t i = 0; i < n; ++i) {
             if (!std::isnan(input(i,j))) {
                 double d = input(i,j) - featureMean_[j];
