@@ -1668,7 +1668,7 @@ void GPz::updateLikelihoodValid_() {
     updateValidOutputErrors_();
 
     // Do the hard work... (simple Gaussian likelihood (model-obs)/errors ~ chi2)
-    Mat1d deviates = validBasisFunctions_*modelWeights_ - inputValid_; // GPzMatLab: delta
+    Mat1d deviates = validBasisFunctions_*modelWeights_ - outputValid_; // GPzMatLab: delta
 
     logLikelihoodValid_ = 0.0;
     for (uint_t i = 0; i < n; ++i) {
