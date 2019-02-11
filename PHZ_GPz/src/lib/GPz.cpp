@@ -1673,7 +1673,7 @@ void GPz::updateLikelihoodValid_() {
     logLikelihoodValid_ = 0.0;
     for (uint_t i = 0; i < n; ++i) {
         logLikelihoodValid_ -= weightValid_[i]*0.5*
-            (-validOutputLogError_[i] + exp(-validOutputLogError_[i])*deviates[i]*deviates[i]);
+            (exp(-validOutputLogError_[i])*deviates[i]*deviates[i] + validOutputLogError_[i]);
     }
 
     logLikelihoodValid_ /= n;
