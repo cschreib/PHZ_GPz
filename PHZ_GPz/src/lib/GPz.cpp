@@ -24,7 +24,9 @@
 #include "PHZ_GPz/GPz.h"
 #include <random>
 #include <iostream>
+#include <chrono>
 #include <Eigen/Eigenvalues>
+#include <gperftools/profiler.h>
 
 namespace PHZ_GPz {
 
@@ -2142,6 +2144,8 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Check inputs are consistent
     assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
 
+    auto start = std::chrono::steady_clock::now();
+
     if (verbose_) {
         std::cout << "begin fitting with " << input.rows() << " data points" << std::endl;
         std::cout << "found " << input.cols() << " features" << std::endl;
@@ -2232,6 +2236,14 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
     // Compute priors of input data distribution for predictions with missing variables
     computeInputPriors_();
+
+    auto end = std::chrono::steady_clock::now();
+
+    if (verbose_) {
+        std::cout << "total time required for fit: " <<
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()/1e3
+            << " seconds" << std::endl;
+    }
 }
 
 // =================================
