@@ -2182,7 +2182,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
                 // Return only the log likelihood
                 Vec1d result(1);
-                result[0] = -logLikelihoodValid_/inputValid_.rows();
+                result[0] = -logLikelihoodValid_;
 
                 return result;
             } else {
