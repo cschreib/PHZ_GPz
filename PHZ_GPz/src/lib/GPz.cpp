@@ -865,6 +865,9 @@ void GPz::buildMissingCache_(const Mat2d& input) const {
     // Cache system to save data related to each combination of missing bands
     // encountered in the training data
 
+    missingCache_.clear();
+    noMissingCache_ = nullptr;
+
     // Iterate over input elements and fill in missing data
     for (uint_t i = 0; i < n; ++i) {
         std::vector<bool> missing(d);
