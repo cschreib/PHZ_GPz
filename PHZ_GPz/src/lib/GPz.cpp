@@ -1516,8 +1516,8 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         errorWeightsSquared = parameters_.uncertaintyBasisWeights.array().pow(2).matrix();
     }
 
-    Mat1d trainOutputError = (-trainOutputLogError_).array().exp().matrix(); // GPzMatLab: beta
-    Mat1d dataWeight = weightTrain_.matrix()*trainOutputError; // GPzMatLab: omega_x_beta
+    Vec1d trainOutputError = (-trainOutputLogError_).array().exp(); // GPzMatLab: beta
+    Vec1d dataWeight = weightTrain_*trainOutputError; // GPzMatLab: omega_x_beta
     Mat2d weightedBasisFunctions = trainBasisFunctions_; // GPzMatLab: BxPHI
     for (uint_t i = 0; i < n; ++i) {
         weightedBasisFunctions.row(i) *= dataWeight[i];
