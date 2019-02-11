@@ -1598,7 +1598,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             // =====================================
 
             derivatives_.uncertaintyBasisLogRelevances = 0.5
-            -0-0.5*weightedRelevance.array()*errorRelevances.array();
+                -0.5*weightedRelevance.array()*errorRelevances.array();
 
             // Contribution to derivative of basis functions
             // =============================================
