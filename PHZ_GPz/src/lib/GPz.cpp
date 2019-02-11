@@ -1523,8 +1523,8 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         weightedBasisFunctions.row(i) *= dataWeight[i];
     }
 
-    Mat2d modelCovariance = weightedBasisFunctions.transpose()*trainBasisFunctions_
-        + relevances.asDiagonal().toDenseMatrix(); // GPzMatLab: SIGMA
+    Mat2d modelCovariance = weightedBasisFunctions.transpose()*trainBasisFunctions_;
+    modelCovariance.diagonal() += relevances; // GPzMatLab: SIGMA
 
     Eigen::JacobiSVD<Mat2d> svd(modelCovariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
