@@ -1531,7 +1531,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     modelInvCovariance_ = computeInverseSymmetric(modelCovariance, svd);
     modelWeights_ = modelInvCovariance_*weightedBasisFunctions.transpose()*outputTrain_.matrix();
 
-    Mat1d deviates = trainBasisFunctions_*modelWeights_ - outputTrain_; // GPzMatLab: delta
+    Mat1d deviates = trainBasisFunctions_*modelWeights_ - outputTrain_.matrix(); // GPzMatLab: delta
     Mat1d weightedDeviates = (dataWeight.array()*deviates.array()).matrix(); // GpzMatLab: omega_beta_x_delta
 
     if (updateLikelihood) {
@@ -1668,7 +1668,7 @@ void GPz::updateLikelihoodValid_() {
     updateValidOutputErrors_();
 
     // Do the hard work... (simple Gaussian likelihood (model-obs)/errors ~ chi2)
-    Mat1d deviates = validBasisFunctions_*modelWeights_ - outputValid_; // GPzMatLab: delta
+    Mat1d deviates = validBasisFunctions_*modelWeights_ - outputValid_.matrix(); // GPzMatLab: delta
 
     logLikelihoodValid_ = 0.0;
     for (uint_t i = 0; i < n; ++i) {
