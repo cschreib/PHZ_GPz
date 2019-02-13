@@ -22,6 +22,7 @@
  */
 
 #include "PHZ_GPz/GPz.h"
+#include "PHZ_GPz/LBFGS.h"
 #include <random>
 #include <iostream>
 #include <chrono>
@@ -2109,6 +2110,14 @@ OutputUncertaintyType GPz::getOutputUncertaintyType() const {
     return outputUncertaintyType_;
 }
 
+void GPz::setOptimizerMethod(OptimizerMethod method) {
+    optimizerMethod_ = method;
+}
+
+OptimizerMethod GPz::getOptimizerMethod() const {
+    return optimizerMethod_;
+}
+
 void GPz::setOptimizationMaxIterations(uint_t maxIterations) {
     optimizationMaxIterations_ = maxIterations;
 }
@@ -2173,6 +2182,45 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
         std::cout << "starting optimization of model" << std::endl;
     }
 
+    // Minimization function
+    auto minFunc = [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
+        if (requested == Minimize::FunctionOutput::METRIC_VALID) {
+            // Compute likelihood of the validation set
+            updateLikelihoodValid_();
+
+            // Return only the log likelihood
+            Vec1d result(1);
+            result[0] = -logLikelihoodValid_;
+
+            return result;
+        } else {
+            // Load new parameters
+            loadParametersArray_(vectorParameters, parameters_);
+
+            // Update model
+            updateTrainModel_(requested);
+
+            Vec1d result(1+numberParameters_);
+
+            if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
+                requested == Minimize::FunctionOutput::METRIC_TRAIN) {
+                // Return log likelihood
+                result[0] = -logLikelihood_/inputTrain_.rows();
+            }
+
+            if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
+                requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
+                // Return derivatives
+                Vec1d vectorDerivatives = makeParameterArray_(derivatives_);
+                for (uint_t i = 0; i < numberParameters_; ++i) {
+                    result[1+i] = -vectorDerivatives[i]/inputTrain_.rows();
+                }
+            }
+
+            return result;
+        }
+    };
+
     // Use BFGS for minimization
     Minimize::Options options;
     options.maxIterations = optimizationMaxIterations_;
@@ -2181,47 +2229,12 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     options.gradientTolerance = optimizationGradientTolerance_;
     options.verbose = verbose_;
 
-    Minimize::Result result = Minimize::minimizeBFGS(options, initialValues,
-        // Minimization function
-        [this](const Vec1d& vectorParameters, Minimize::FunctionOutput requested) {
-
-            if (requested == Minimize::FunctionOutput::METRIC_VALID) {
-                // Compute likelihood of the validation set
-                updateLikelihoodValid_();
-
-                // Return only the log likelihood
-                Vec1d result(1);
-                result[0] = -logLikelihoodValid_;
-
-                return result;
-            } else {
-                // Load new parameters
-                loadParametersArray_(vectorParameters, parameters_);
-
-                // Update model
-                updateTrainModel_(requested);
-
-                Vec1d result(1+numberParameters_);
-
-                if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
-                    requested == Minimize::FunctionOutput::METRIC_TRAIN) {
-                    // Return log likelihood
-                    result[0] = -logLikelihood_/inputTrain_.rows();
-                }
-
-                if (requested == Minimize::FunctionOutput::ALL_TRAIN ||
-                    requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN) {
-                    // Return derivatives
-                    Vec1d vectorDerivatives = makeParameterArray_(derivatives_);
-                    for (uint_t i = 0; i < numberParameters_; ++i) {
-                        result[1+i] = -vectorDerivatives[i]/inputTrain_.rows();
-                    }
-                }
-
-                return result;
-            }
-        }
-    );
+    Minimize::Result result;
+    if (optimizerMethod_ == OptimizerMethod::GPZ_LBFGS) {
+        result = Minimize::minimizeLBFGS(options, initialValues, minFunc);
+    } else {
+        result = Minimize::minimizeBFGS(options, initialValues, minFunc);
+    }
 
     assert(result.success && "minimization failed");
 
