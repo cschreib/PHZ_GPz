@@ -40,7 +40,7 @@ namespace Minimize {
         double gradientTolerance = 1e-3;
         uint_t maxIterations = 1000;
         bool   hasValidation = false;
-        uint_t maxValidationAttempts = 5;
+        uint_t maxValidationAttempts = 50;
         bool   verbose = false;
         bool   verboseSingleLine = false;
     };
