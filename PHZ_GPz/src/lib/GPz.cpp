@@ -714,7 +714,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
             break;
         }
         case WeightingScheme::ONE_OVER_ONE_PLUS_OUTPUT: {
-            weight = pow(1.0/(1.0 + output), 2);
+            weight = 1.0/((1.0 + output)*(1.0 + output));
             break;
         }
         case WeightingScheme::BALANCED: {
@@ -1518,7 +1518,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     Mat1d errorWeightsSquared; // GPzMatLab: v.^2
     if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
         errorRelevances = parameters_.uncertaintyBasisLogRelevances.array().exp().matrix();
-        errorWeightsSquared = parameters_.uncertaintyBasisWeights.array().pow(2).matrix();
+        errorWeightsSquared = parameters_.uncertaintyBasisWeights.array().square();
     }
 
     Vec1d trainOutputError = (-trainOutputLogError_).array().exp(); // GPzMatLab: beta
@@ -1544,7 +1544,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // ==============
 
         logLikelihood_ = -0.5*(weightedDeviates.array()*deviates.array()).sum()
-            -0.5*(relevances.array()*modelWeights_.array().pow(2)).sum()
+            -0.5*(relevances.array()*modelWeights_.array().square()).sum()
             +0.5*parameters_.basisFunctionLogRelevances.sum()
             -0.5*computeLogDeterminant(svd)
             +0.5*((-trainOutputLogError_).array()*weightTrain_.array()).sum()
@@ -1573,7 +1573,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             -0.5*modelInvCovariance_.diagonal().array()*relevances.array()
             -(trainBasisFunctions_.transpose()*weightedDeviates).array()*dwda.array()
             -relevances.array()*modelWeights_.array()*dwda.array()
-            -0.5*relevances.array()*modelWeights_.array().pow(2);
+            -0.5*relevances.array()*modelWeights_.array().square();
 
         // Derivative wrt uncertainty constant
         // ===================================
@@ -1800,7 +1800,7 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     varianceInputNoise -= value*value;
 
     double logError = evaluateOutputLogError_(basis);
-    VlnS -= pow(logError - parameters_.logUncertaintyConstant, 2);
+    VlnS -= square(logError - parameters_.logUncertaintyConstant);
     varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 
@@ -1925,7 +1925,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
     varianceInputNoise -= value*value;
 
     double logError = evaluateOutputLogError_(basis);
-    VlnS -= pow(logError - parameters_.logUncertaintyConstant, 2);
+    VlnS -= square(logError - parameters_.logUncertaintyConstant);
     varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 

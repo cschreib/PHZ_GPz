@@ -53,6 +53,11 @@ namespace PHZ_GPz {
         }
     }
 
+    template<typename T>
+    T square(T data) {
+        return data*data;
+    }
+
 }  // namespace PHZ_GPz
 
 #endif
