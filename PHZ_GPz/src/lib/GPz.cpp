@@ -2316,6 +2316,16 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check that we have a usable set of parameters to make predictions
     assert(parameters_.basisFunctionPositions.rows() != 0 && "model is not initialized");
 
+    auto start = std::chrono::steady_clock::now();
+
+    if (verbose_) {
+        std::cout << "begin prediction for " << input.rows() << " data points" << std::endl;
+        std::cout << "found " << input.cols() << " features" << std::endl;
+        if (inputError.rows() != 0) {
+            std::cout << "found uncertainties for the features" << std::endl;
+        }
+    }
+
     // Detect missing data
     buildMissingCache_(input);
     updateMissingCache_(MissingCacheUpdate::PREDICT);
@@ -2330,6 +2340,14 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
 
     // De-project output from training space to real space
     restoreOutputNormalization_(input, missing, result);
+
+    auto end = std::chrono::steady_clock::now();
+
+    if (verbose_) {
+        std::cout << "total time required for prediction: " <<
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()/1e3
+            << " seconds" << std::endl;
+    }
 
     return result;
 }
