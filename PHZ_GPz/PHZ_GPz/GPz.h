@@ -214,6 +214,24 @@ enum class TrainValidationSplitMethod {
  */
 
 /**
+ * @brief Choice of optimizer algorithm
+ */
+enum class OptimizerMethod {
+    GSL_BFGS,
+    GPZ_LBFGS
+};
+
+/** \var PHZ_GPz::OptimizerMethod::GSL_BFGS
+ * @brief Use the BFGS algorithm provided by the GSL. For this optimizer, the recommended
+ *        optimization tolerance threshold is 0.1.
+ */
+
+/** \var PHZ_GPz::OptimizerMethod::GPZ_LBFGS
+ * @brief Use the custom L-BFGS aglorithm as implemented in GPz MatLab (default). For this
+ *        optimizer, the recommended optimization tolerance threshold is 1e-9.
+ */
+
+/**
  * @struct GPzOutput
  * @brief Store the output of a GPz run
  *
@@ -287,10 +305,11 @@ class GPz {
     WeightingScheme            weightingScheme_ = WeightingScheme::BALANCED;
     NormalizationScheme        normalizationScheme_ = NormalizationScheme::WHITEN;
     TrainValidationSplitMethod trainValidSplitMethod_ = TrainValidationSplitMethod::RANDOM;
+    OptimizerMethod            optimizerMethod_ = OptimizerMethod::GPZ_LBFGS;
     double                     balancedWeightingBinSize_ = 0.1;
     double                     trainValidRatio_ = 0.5;
     uint_t                     optimizationMaxIterations_ = 200;
-    double                     optimizationTolerance_ = 1e-1;
+    double                     optimizationTolerance_ = 1e-9;
     double                     optimizationGradientTolerance_ = 1e-5;
     bool                       verbose_ = false;
 
@@ -620,6 +639,10 @@ public:
     void setOutputUncertaintyType(OutputUncertaintyType type);
 
     OutputUncertaintyType getOutputUncertaintyType() const;
+
+    void setOptimizerMethod(OptimizerMethod method);
+
+    OptimizerMethod getOptimizerMethod() const;
 
     void setOptimizationMaxIterations(uint_t maxIterations);
 
