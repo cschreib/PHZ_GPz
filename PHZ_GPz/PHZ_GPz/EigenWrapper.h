@@ -289,7 +289,7 @@ namespace PHZ_GPz {
 
 }  // namespace PHZ_GPz
 
-namespace std {
+namespace Eigen {
 
     // =========================================
     // Specialization of std::begin and std::end
@@ -392,6 +392,6 @@ namespace std {
         return PHZ_GPz::Implementation::EigenIterator<DataType>(mat, mat.size());
     }
 
-}  // namespace std
+}  // namespace Eigen
 
 #endif

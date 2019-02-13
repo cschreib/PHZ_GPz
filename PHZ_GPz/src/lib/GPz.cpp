@@ -724,7 +724,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
             uint_t numBins = ceil((maxValue - minValue)/balancedWeightingBinSize_);
 
             Vec1d bins(numBins+1);
-            std::iota(std::begin(bins), std::end(bins), 0.0);
+            std::iota(begin(bins), end(bins), 0.0);
             bins = bins*balancedWeightingBinSize_ + minValue;
 
             // Compute histogram of counts in bins
