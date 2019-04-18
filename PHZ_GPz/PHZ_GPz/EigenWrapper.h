@@ -54,7 +54,7 @@ namespace PHZ_GPz {
             logDet += log(lower(i,i));
         }
 
-        return logDet;
+        return 2*logDet;
     }
 
     template<typename MatrixType>
