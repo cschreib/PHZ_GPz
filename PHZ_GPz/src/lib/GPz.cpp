@@ -1434,7 +1434,7 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
             value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
         }
 
-        funcs[j] = exp(-0.5*(delta.array()*deltaSolved.array()).sum());
+        funcs[j] = exp(-0.5*(value + (delta.array()*deltaSolved.array()).sum()));
     }
 
     return funcs;
