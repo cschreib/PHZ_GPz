@@ -509,6 +509,8 @@ class GPz {
 
     Mat1d evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const;
 
+    void updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
+
     Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
 
     double evaluateOutputLogError_(const Mat1d& basisFunctions) const;

@@ -1390,11 +1390,11 @@ void GPz::updateMissingCache_(MissingCacheUpdate what) const {
 }
 
 void GPz::updateTrainBasisFunctions_() {
-    trainBasisFunctions_ = evaluateBasisFunctions_(inputTrain_, inputErrorTrain_, missingTrain_);
+    updateBasisFunctions_(trainBasisFunctions_, inputTrain_, inputErrorTrain_, missingTrain_);
 }
 
 void GPz::updateValidBasisFunctions_() {
-    validBasisFunctions_ = evaluateBasisFunctions_(inputValid_, inputErrorValid_, missingValid_);
+    updateBasisFunctions_(validBasisFunctions_, inputValid_, inputErrorValid_, missingValid_);
 }
 
 void GPz::updateTrainOutputErrors_() {
@@ -1407,7 +1407,6 @@ void GPz::updateValidOutputErrors_() {
 
 Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
-    const uint_t d = numberFeatures_;
 
     Eigen::JacobiSVD<Mat2d> svd;
 
@@ -1418,50 +1417,78 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
 
     Mat1d funcs(m);
     for (uint_t j = 0; j < m; ++j) {
-        delta = input - parameters_.basisFunctionPositions.row(j).transpose(); // GPzMatLab: Delta(i,:)
-
         double value = log(2.0)*element.countMissing;
+
+        delta = input - parameters_.basisFunctionPositions.row(j).transpose(); // GPzMatLab: Delta(i,:)
 
         if (inputError.rows() == 0) {
             deltaSolved = element.invCovariancesObserved[j]*delta;
         } else {
-            if (d == 1) {
-                double covarianceScalar = element.covariancesObserved[j](0,0) + inputError(0);
-                deltaSolved = delta/covarianceScalar;
-                value += log(covarianceScalar) - element.covariancesObservedLogDeterminant[j];
-            } else {
-                fetchVectorElements_(varianceObserved, inputError, element, 'o');
+            fetchVectorElements_(varianceObserved, inputError, element, 'o');
 
-                covariance = element.covariancesObserved[j]; // GPzMatLab: PsiPlusSigma
-                covariance.diagonal() += varianceObserved;
+            covariance = element.covariancesObserved[j]; // GPzMatLab: PsiPlusSigma
+            covariance.diagonal() += varianceObserved;
 
-                svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
-                deltaSolved = svd.solve(delta);
-                value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
-            }
+            svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            deltaSolved = svd.solve(delta);
+            value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
         }
 
-        funcs[j] = exp(-0.5*(value + (delta.array()*deltaSolved.array()).sum()));
+        value += (delta.array()*deltaSolved.array()).sum();
+
+        funcs[j] = exp(-0.5*value);
     }
 
     return funcs;
 }
 
-Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
     const uint_t n = input.rows();
     const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
 
-    Mat2d funcs(n,m);
+    if (funcs.rows() == 0) {
+        funcs.resize(n,m);
+    }
+
+    double log2 = log(2.0);
+
     for (uint_t i = 0; i < n; ++i) {
         const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
 
-        if (inputError.rows() == 0) {
-            funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element).transpose();
+        if (d == 1) {
+            // Specialization of code for one single feature (faster)
+            if (inputError.rows() == 0) {
+                for (uint_t j = 0; j < m; ++j) {
+                    double value = log2*element.countMissing;
+                    double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
+                    value += square(delta)*element.invCovariancesObserved[j](0,0);
+                    funcs(i,j) = exp(-0.5*value);
+                }
+            } else {
+                for (uint_t j = 0; j < m; ++j) {
+                    double value = log2*element.countMissing;
+                    double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
+                    double covariance = element.covariancesObserved[j](0,0) + inputError(i,0); // GPzMatLab: PsiPlusSigma
+                    value += square(delta)/covariance;
+                    value += log(covariance) - element.covariancesObservedLogDeterminant[j];
+                    funcs(i,j) = exp(-0.5*value);
+                }
+            }
         } else {
-            funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element).transpose();
+            // General code (any number of features)
+            if (inputError.rows() == 0) {
+                funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element).transpose();
+            } else {
+                funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element).transpose();
+            }
         }
     }
+}
 
+Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+    Mat2d funcs;
+    updateBasisFunctions_(funcs, input, inputError, missing);
     return funcs;
 }
 
