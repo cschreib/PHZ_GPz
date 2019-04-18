@@ -28,6 +28,7 @@
 #include <memory>
 #include <vector>
 #include <numeric>
+#include <chrono>
 
 namespace PHZ_GPz {
 
@@ -56,6 +57,12 @@ namespace PHZ_GPz {
     template<typename T>
     T square(T data) {
         return data*data;
+    }
+
+    inline double now() {
+        return std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::high_resolution_clock::now().time_since_epoch()
+        ).count()*1e-6;
     }
 
 }  // namespace PHZ_GPz
