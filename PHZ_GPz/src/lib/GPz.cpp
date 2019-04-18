@@ -1407,12 +1407,11 @@ void GPz::updateValidOutputErrors_() {
 
 Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
-    const uint_t d = numberFeatures_;
 
     Eigen::JacobiSVD<Mat2d> svd;
 
-    Mat2d invCovariance; // GPzMatLab: inv(Sigma(o,o)) or inv(PsiPlusSigma)
     Mat1d delta;
+    Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/PsiPlusSigma
     Mat1d varianceObserved;
     Mat2d covariance;
 
@@ -1423,7 +1422,7 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
         double value = log(2.0)*element.countMissing;
 
         if (inputError.rows() == 0) {
-            invCovariance = element.invCovariancesObserved[j];
+            deltaSolved = element.invCovariancesObserved[j]*delta;
         } else {
             fetchVectorElements_(varianceObserved, inputError, element, 'o');
 
@@ -1431,16 +1430,11 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
             covariance.diagonal() += varianceObserved;
 
             svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            invCovariance = computeInverseSymmetric(covariance, svd);
+            deltaSolved = svd.solve(delta);
             value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
         }
 
-        for (uint_t k = 0; k < d; ++k)
-        for (uint_t l = k; l < d; ++l) {
-            value += (l == k ? 1.0 : 2.0)*invCovariance(k,l)*delta[k]*delta[l];
-        }
-
-        funcs[j] = exp(-0.5*value);
+        funcs[j] = exp(-0.5*(delta.array()*deltaSolved.array()).sum());
     }
 
     return funcs;
