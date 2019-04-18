@@ -1664,28 +1664,47 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         Mat2d dgO, dgU;
         Mat2d covObsInvL;
 
-        if (d == 1) {
-            derivInvCovariance.resize(1,1);
-        }
-
         for (uint_t i = 0; i < n; ++i) {
             const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-            for (uint_t j = 0; j < m; ++j) {
+            if (d == 1) {
+                // Specialization for one single feature (faster)
 
-                Mat1d delta = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
-                Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
+                for (uint_t j = 0; j < m; ++j) {
+                    double delta = inputTrain_(i,0) - parameters_.basisFunctionPositions(j,0); // GPzMatLab: Delta(i,:)
+                    double deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
+                    double derivInvCovarianceScalar; // GPzMatLab: diSoo
 
-                if (inputErrorTrain_.rows() == 0) {
-                    deltaSolved = element.invCovariancesObserved[j]*delta;
-                    derivInvCovariance = (-0.5*derivBasis(i,j))*delta*delta.transpose();
-                } else {
-                    if (d == 1) {
+                    if (inputErrorTrain_.rows() == 0) {
+                        deltaSolved = element.invCovariancesObserved[j](0,0)*delta;
+                        derivInvCovarianceScalar = (-0.5*derivBasis(i,j))*square(delta);
+                    } else {
                         double covarianceScalar = element.covariancesObserved[j](0,0) + inputErrorTrain_(i,0);
                         deltaSolved = delta/covarianceScalar;
-                        derivInvCovariance(0,0) = (-0.5*derivBasis(i,j))*element.covariancesObserved[j](0,0)*(
-                            1 + element.covariancesObserved[j](0,0)*(square(deltaSolved(0)) - 1.0/covarianceScalar)
+                        derivInvCovarianceScalar = (-0.5*derivBasis(i,j))*element.covariancesObserved[j](0,0)*(
+                            1 + element.covariancesObserved[j](0,0)*(square(deltaSolved) - 1.0/covarianceScalar)
                         );
+                    }
+
+                    // Derivative wrt to basis positions
+                    // =================================
+                    derivatives_.basisFunctionPositions(j,0) += derivBasis(i,j)*deltaSolved;
+
+                    // Derivative wrt to basis covariances
+                    // =================================
+                    double dgOScalar = element.dgO[j](0,0)*derivInvCovarianceScalar;
+                    derivatives_.basisFunctionCovariances[j](0,0) += dgOScalar;
+                }
+            } else {
+                // Generic code for any number of feature
+
+                for (uint_t j = 0; j < m; ++j) {
+                    Mat1d delta = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
+                    Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
+
+                    if (inputErrorTrain_.rows() == 0) {
+                        deltaSolved = element.invCovariancesObserved[j]*delta;
+                        derivInvCovariance = (-0.5*derivBasis(i,j))*delta*delta.transpose();
                     } else {
                         variance = inputErrorTrain_.row(i).asDiagonal();
                         fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
@@ -1702,20 +1721,20 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
                             + deltaSolvedCov*deltaSolvedCov.transpose()
                         );
                     }
-                }
 
-                // Derivative wrt to basis positions
-                // =================================
-                derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*deltaSolved.transpose();
+                    // Derivative wrt to basis positions
+                    // =================================
+                    derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*deltaSolved.transpose();
 
-                // Derivative wrt to basis covariances
-                // =================================
-                dgO = element.dgO[j]*derivInvCovariance;
-                addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
+                    // Derivative wrt to basis covariances
+                    // =================================
+                    dgO = element.dgO[j]*derivInvCovariance;
+                    addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
 
-                if (element.countMissing != 0) {
-                    dgU = -dgO*element.gUO[j].transpose();
-                    addMatrixElements_(dgU, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                    if (element.countMissing != 0) {
+                        dgU = -dgO*element.gUO[j].transpose();
+                        addMatrixElements_(dgU, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                    }
                 }
             }
         }
