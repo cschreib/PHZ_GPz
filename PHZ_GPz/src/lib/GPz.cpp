@@ -1407,6 +1407,7 @@ void GPz::updateValidOutputErrors_() {
 
 Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
 
     Eigen::JacobiSVD<Mat2d> svd;
 
@@ -1424,14 +1425,20 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
         if (inputError.rows() == 0) {
             deltaSolved = element.invCovariancesObserved[j]*delta;
         } else {
-            fetchVectorElements_(varianceObserved, inputError, element, 'o');
+            if (d == 1) {
+                double covarianceScalar = element.covariancesObserved[j](0,0) + inputError(0);
+                deltaSolved = delta/covarianceScalar;
+                value += log(covarianceScalar) - element.covariancesObservedLogDeterminant[j];
+            } else {
+                fetchVectorElements_(varianceObserved, inputError, element, 'o');
 
-            covariance = element.covariancesObserved[j]; // GPzMatLab: PsiPlusSigma
-            covariance.diagonal() += varianceObserved;
+                covariance = element.covariancesObserved[j]; // GPzMatLab: PsiPlusSigma
+                covariance.diagonal() += varianceObserved;
 
-            svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            deltaSolved = svd.solve(delta);
-            value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
+                svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
+                deltaSolved = svd.solve(delta);
+                value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
+            }
         }
 
         funcs[j] = exp(-0.5*(value + (delta.array()*deltaSolved.array()).sum()));
@@ -1488,6 +1495,7 @@ Mat1d GPz::evaluateOutputLogErrors_(const Mat2d& basisFunctions) const {
 
 void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     const uint_t n = inputTrain_.rows();
+    const uint_t d = numberFeatures_;
     const uint_t m = numberBasisFunctions_;
 
     const bool updateLikelihood =
@@ -1636,20 +1644,28 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
                     deltaSolved = element.invCovariancesObserved[j]*delta;
                     derivInvCovariance = (-0.5*derivBasis(i,j))*delta*delta.transpose();
                 } else {
-                    variance = inputErrorTrain_.row(i).asDiagonal();
-                    fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
+                    if (d == 1) {
+                        double covarianceScalar = element.covariancesObserved[j](0,0) + inputErrorTrain_(i,0);
+                        deltaSolved = delta/covarianceScalar;
+                        derivInvCovariance(0,0) = (-0.5*derivBasis(i,j))*element.covariancesObserved[j](0,0)*(
+                            1 + element.covariancesObserved[j](0,0)*(square(deltaSolved(0)) - 1.0/covarianceScalar)
+                        );
+                    } else {
+                        variance = inputErrorTrain_.row(i).asDiagonal();
+                        fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
 
-                    covariance = element.covariancesObserved[j] + varianceObserved;
-                    chol.compute(covariance);
-                    deltaSolved = chol.solve(delta);
+                        covariance = element.covariancesObserved[j] + varianceObserved;
+                        chol.compute(covariance);
+                        deltaSolved = chol.solve(delta);
 
-                    Mat1d deltaSolvedCov = element.covariancesObserved[j]*deltaSolved;
-                    covObsInvL = chol.solve(element.covariancesObserved[j]);
-                    derivInvCovariance = (-0.5*derivBasis(i,j))*(
-                        element.covariancesObserved[j]
-                        - element.covariancesObserved[j]*covObsInvL.transpose()
-                        + deltaSolvedCov*deltaSolvedCov.transpose()
-                    );
+                        Mat1d deltaSolvedCov = element.covariancesObserved[j]*deltaSolved;
+                        covObsInvL = chol.solve(element.covariancesObserved[j]);
+                        derivInvCovariance = (-0.5*derivBasis(i,j))*(
+                            element.covariancesObserved[j]
+                            - element.covariancesObserved[j]*covObsInvL.transpose()
+                            + deltaSolvedCov*deltaSolvedCov.transpose()
+                        );
+                    }
                 }
 
                 // Derivative wrt to basis positions
