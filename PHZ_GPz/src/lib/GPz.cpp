@@ -1560,10 +1560,11 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     Mat2d modelCovariance = weightedBasisFunctions.transpose()*trainBasisFunctions_;
     modelCovariance.diagonal() += relevances; // GPzMatLab: SIGMA
 
-    Eigen::JacobiSVD<Mat2d> svd(modelCovariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    Eigen::LDLT<Mat2d> chol(modelCovariance);
 
-    modelInvCovariance_ = computeInverseSymmetric(modelCovariance, svd);
-    modelWeights_ = modelInvCovariance_*weightedBasisFunctions.transpose()*outputTrain_.matrix();
+    modelInvCovariance_ = computeInverseSymmetric(modelCovariance, chol);
+    Mat2d solvedWeightedBasisFunctions = chol.solve(weightedBasisFunctions.transpose());
+    modelWeights_ = solvedWeightedBasisFunctions*outputTrain_.matrix();
 
     Mat1d deviates = trainBasisFunctions_*modelWeights_ - outputTrain_.matrix(); // GPzMatLab: delta
     Mat1d weightedDeviates = (dataWeight.array()*deviates.array()).matrix(); // GpzMatLab: omega_beta_x_delta
@@ -1575,7 +1576,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         logLikelihood_ = -0.5*(weightedDeviates.array()*deviates.array()).sum()
             -0.5*(relevances.array()*modelWeights_.array().square()).sum()
             +0.5*parameters_.basisFunctionLogRelevances.sum()
-            -0.5*computeLogDeterminant(svd)
+            -0.5*computeLogDeterminant(chol)
             +0.5*((-trainOutputLogError_).array()*weightTrain_.array()).sum()
             -0.5*log(2.0*M_PI)*sumWeightTrain_;
 
@@ -1586,17 +1587,23 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         }
     }
 
+    if (timeExecution) {
+        timeNow = now();
+        std::cout << "updateLikelihood " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
+
     if (updateDerivatives) {
         // Derivative of basis functions
         // =============================
 
-        Mat2d derivBasis = -weightedBasisFunctions*modelInvCovariance_
+        Mat2d derivBasis = -solvedWeightedBasisFunctions.transpose()
             -weightedDeviates*modelWeights_.transpose(); // GPzMatLab: dlnPHI
 
         // Derivative wrt relevance
         // ========================
 
-        Mat1d dwda = -modelInvCovariance_*(relevances.array()*modelWeights_.array()).matrix();
+        Mat1d dwda = -chol.solve((relevances.array()*modelWeights_.array()).matrix());
 
         derivatives_.basisFunctionLogRelevances = 0.5
             -0.5*modelInvCovariance_.diagonal().array()*relevances.array()
@@ -1607,7 +1614,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // Derivative wrt uncertainty constant
         // ===================================
 
-        Mat1d nu = ((trainBasisFunctions_*modelInvCovariance_).array()*trainBasisFunctions_.array())
+        Mat1d nu = (chol.solve(trainBasisFunctions_.transpose()).transpose().array()*trainBasisFunctions_.array())
             .rowwise().sum(); // GPzMatLab: nu
 
         Mat1d derivOutputError(n); // GPzMatLab: dbeta
@@ -1650,13 +1657,16 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             derivatives_.basisFunctionCovariances[i].fill(0.0);
         }
 
-        Eigen::LLT<Mat2d> chol;
         Mat2d derivInvCovariance; // GPzMatLab: diSoo
         Mat2d covariance, derivCovariance;
         Mat2d variance; // GPzMatLab: Psi(:,:,i)
         Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
         Mat2d dgO, dgU;
         Mat2d covObsInvL;
+
+        if (d == 1) {
+            derivInvCovariance.resize(1,1);
+        }
 
         for (uint_t i = 0; i < n; ++i) {
             const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
