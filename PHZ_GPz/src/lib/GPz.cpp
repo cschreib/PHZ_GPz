@@ -1561,9 +1561,15 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     modelCovariance.diagonal() += relevances; // GPzMatLab: SIGMA
 
     Eigen::LDLT<Mat2d> chol(modelCovariance);
-
     modelInvCovariance_ = computeInverseSymmetric(modelCovariance, chol);
-    Mat2d solvedWeightedBasisFunctions = chol.solve(weightedBasisFunctions.transpose());
+
+    // Mat2d solvedWeightedBasisFunctions = chol.solve(weightedBasisFunctions.transpose());
+    Mat2d solvedBasisFunctions = chol.solve(trainBasisFunctions_.transpose());
+    Mat2d solvedWeightedBasisFunctions = solvedBasisFunctions;
+    for (uint_t i = 0; i < n; ++i) {
+        solvedWeightedBasisFunctions.col(i) *= dataWeight[i];
+    }
+
     modelWeights_ = solvedWeightedBasisFunctions*outputTrain_.matrix();
 
     Mat1d deviates = trainBasisFunctions_*modelWeights_ - outputTrain_.matrix(); // GPzMatLab: delta
@@ -1614,8 +1620,8 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // Derivative wrt uncertainty constant
         // ===================================
 
-        Mat1d nu = (chol.solve(trainBasisFunctions_.transpose()).transpose().array()*trainBasisFunctions_.array())
-            .rowwise().sum(); // GPzMatLab: nu
+        Mat1d nu = (solvedBasisFunctions.transpose().array()*trainBasisFunctions_.array())
+           .rowwise().sum(); // GPzMatLab: nu
 
         Mat1d derivOutputError(n); // GPzMatLab: dbeta
         // Do this in an explicit loop as all operations are component-wise, it's clearer
