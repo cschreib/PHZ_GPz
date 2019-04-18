@@ -47,7 +47,7 @@ namespace PHZ_GPz {
 
     template<typename MatrixType>
     double computeLogDeterminant(const Eigen::LLT<MatrixType>& cholesky) {
-        auto& lower = cholesky.matrixL();
+        auto&& lower = cholesky.matrixL();
 
         double logDet = 0.0;
         for (int i = 0; i < lower.rows(); ++i) {
@@ -59,7 +59,7 @@ namespace PHZ_GPz {
 
     template<typename MatrixType>
     double computeLogDeterminant(const Eigen::LDLT<MatrixType>& cholesky) {
-        auto& diag = cholesky.vectorD();
+        auto&& diag = cholesky.vectorD();
 
         double logDet = 0.0;
         for (int i = 0; i < diag.size(); ++i) {
@@ -71,7 +71,7 @@ namespace PHZ_GPz {
 
     template<typename MatrixType>
     double computeLogDeterminant(const Eigen::JacobiSVD<MatrixType>& svd) {
-        auto& diag = svd.singularValues();
+        auto&& diag = svd.singularValues();
 
         double logDet = 0.0;
         for (int i = 0; i < diag.size(); ++i) {
