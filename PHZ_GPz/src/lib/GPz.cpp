@@ -1471,8 +1471,7 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
                     double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
                     double covariance = element.covariancesObserved[j](0,0) + inputError(i,0); // GPzMatLab: PsiPlusSigma
                     value += square(delta)/covariance;
-                    value += log(covariance) - element.covariancesObservedLogDeterminant[j];
-                    funcs(i,j) = exp(-0.5*value);
+                    funcs(i,j) = exp(-0.5*value)/sqrt(1.0 + inputError(i,0)/element.covariancesObserved[j](0,0));
                 }
             }
         } else {
