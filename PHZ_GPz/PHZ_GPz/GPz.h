@@ -341,6 +341,7 @@ class GPz {
     double                     optimizationTolerance_ = 1e-9;
     double                     optimizationGradientTolerance_ = 1e-5;
     bool                       verbose_ = false;
+    bool                       profileTraining_ = false;
     GPzOptimizations           optimizations_;
 
     // ==================
@@ -695,6 +696,8 @@ public:
     void setOptimizationFlags(GPzOptimizations optimizations);
 
     GPzOptimizations getOptimizationFlags() const;
+
+    void setProfileTraining(bool profile);
 
     // =====================
     // Fit/training function

@@ -1575,9 +1575,35 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     }
 
     // Pre-compute things
+    double timePrev, timeNow;
+    if (profileTraining_) {
+        std::cout << "#### " << (int)requested << std::endl;
+        timePrev = now();
+    }
+
     updateMissingCache_(MissingCacheUpdate::TRAIN);
+
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateMissingCache " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
+
     updateTrainBasisFunctions_();
+
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateTrainBasisFunctions " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
+
     updateTrainOutputErrors_();
+
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateTrainOutputErrors " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
 
     // Do the hard work...
     Mat1d relevances = parameters_.basisFunctionLogRelevances.array().exp().matrix(); // GPzMatLab: alpha
@@ -1588,6 +1614,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         errorWeightsSquared = parameters_.uncertaintyBasisWeights.array().square();
     }
 
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateLikelihood 1 " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
+
     Vec1d trainOutputError = (-trainOutputLogError_).array().exp(); // GPzMatLab: beta
     Vec1d dataWeight = weightTrain_*trainOutputError; // GPzMatLab: omega_x_beta
     Mat2d weightedBasisFunctions = trainBasisFunctions_; // GPzMatLab: BxPHI
@@ -1595,11 +1627,23 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         weightedBasisFunctions.row(i) *= dataWeight[i];
     }
 
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateLikelihood 2 " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
+
     Mat2d modelCovariance = weightedBasisFunctions.transpose()*trainBasisFunctions_;
     modelCovariance.diagonal() += relevances; // GPzMatLab: SIGMA
 
     Eigen::LDLT<Mat2d> chol(modelCovariance);
     modelInvCovariance_ = computeInverseSymmetric(modelCovariance, chol);
+
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateLikelihood 3 " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
 
     parallel_for pool(optimizations_.enableMultithreading ? optimizations_.maxThreads : 0);
 
@@ -1616,6 +1660,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
 
     Mat1d deviates = trainBasisFunctions_*modelWeights_ - outputTrain_.matrix(); // GPzMatLab: delta
     Mat1d weightedDeviates = (dataWeight.array()*deviates.array()).matrix(); // GpzMatLab: omega_beta_x_delta
+
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateLikelihood 4 " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
 
     if (updateLikelihood) {
         // Log likelihood
@@ -1638,6 +1688,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         logLikelihood_ = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9;
     }
 
+    if (profileTraining_) {
+        timeNow = now();
+        std::cout << "updateLikelihood 5 " << timeNow - timePrev << std::endl;
+        timePrev = timeNow;
+    }
+
     if (updateDerivatives) {
         // Derivative of basis functions
         // =============================
@@ -1656,6 +1712,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             -relevances.array()*modelWeights_.array()*dwda.array()
             -0.5*relevances.array()*modelWeights_.array().square();
 
+        if (profileTraining_) {
+            timeNow = now();
+            std::cout << "updateDerivatives 0 " << timeNow - timePrev << std::endl;
+            timePrev = timeNow;
+        }
+
         // Derivative wrt uncertainty constant
         // ===================================
 
@@ -1670,6 +1732,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         }
 
         derivatives_.logUncertaintyConstant = derivOutputError.sum();
+
+        if (profileTraining_) {
+            timeNow = now();
+            std::cout << "updateDerivatives 1 " << timeNow - timePrev << std::endl;
+            timePrev = timeNow;
+        }
 
         if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
             // Derivative wrt uncertainty weights
@@ -1700,6 +1768,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         derivatives_.basisFunctionPositions.fill(0.0);
         for (uint_t i = 0; i < m; ++i) {
             derivatives_.basisFunctionCovariances[i].fill(0.0);
+        }
+
+        if (profileTraining_) {
+            timeNow = now();
+            std::cout << "updateDerivatives 2 " << timeNow - timePrev << std::endl;
+            timePrev = timeNow;
         }
 
         // Generic code for any number of feature and any covariance type
@@ -1797,6 +1871,13 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             pool.execute(derivativeAddContributionDiag, m);
         } else {
             pool.execute(derivativeAddContribution, m);
+        }
+
+        if (profileTraining_) {
+            timeNow = now();
+            std::cout << "updateDerivatives 3 " << timeNow - timePrev << std::endl;
+            std::cout << "derivative: " << derivatives_.basisFunctionCovariances[0](0,0) << std::endl;
+            timePrev = timeNow;
         }
     }
 }
