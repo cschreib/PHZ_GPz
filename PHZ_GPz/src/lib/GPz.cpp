@@ -1431,7 +1431,10 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
 
             svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
             deltaSolved = svd.solve(delta);
-            value += computeLogDeterminant(svd) - element.covariancesObservedLogDeterminant[j];
+            double ldet = computeLogDeterminant(svd);
+            double ldetobs = element.covariancesObservedLogDeterminant[j];
+
+            value += ldet - ldetobs;
         }
 
         value += (delta.array()*deltaSolved.array()).sum();
@@ -1451,38 +1454,70 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
         funcs.resize(n,m);
     }
 
-    double log2 = log(2.0);
+    const double log2 = log(2.0);
 
-    for (uint_t i = 0; i < n; ++i) {
+    const bool diagonalCovariance = covarianceType_ == CovarianceType::VARIABLE_DIAGONAL ||
+                                    covarianceType_ == CovarianceType::GLOBAL_DIAGONAL;
+
+    auto computeForSource = [&](uint_t i) {
         const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
 
-        if (d == 1) {
-            // Specialization of code for one single feature (faster)
+        if ((d == 1 && optimizations_.specializeForSingleFeature) ||
+            (diagonalCovariance == optimizations_.specializeForDiagCovariance)) {
+
+            // Specialization of code for one single feature or diagonal covariances (faster)
             if (inputError.rows() == 0) {
                 for (uint_t j = 0; j < m; ++j) {
                     double value = log2*element.countMissing;
-                    double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
-                    value += square(delta)*element.invCovariancesObserved[j](0,0);
+
+                    for (uint_t k = 0; k < d; ++k) {
+                        if (!element.missing[k]) {
+                            double delta = input(i,k) - parameters_.basisFunctionPositions(j,k);
+                            value += square(delta)*element.invCovariancesObserved[j](k,k);
+                        }
+                    }
+
                     funcs(i,j) = exp(-0.5*value);
                 }
             } else {
                 for (uint_t j = 0; j < m; ++j) {
                     double value = log2*element.countMissing;
-                    double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
-                    double covariance = element.covariancesObserved[j](0,0) + inputError(i,0); // GPzMatLab: PsiPlusSigma
-                    value += square(delta)/covariance;
-                    funcs(i,j) = exp(-0.5*value)/sqrt(1.0 + inputError(i,0)/element.covariancesObserved[j](0,0));
+
+                    if (d == 1) {
+                        double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
+                        double covariance = element.covariancesObserved[j](0,0) + inputError(i,0); // GPzMatLab: PsiPlusSigma
+                        value += square(delta)/covariance;
+                        funcs(i,j) = exp(-0.5*value)/sqrt(1.0 + inputError(i,0)/element.covariancesObserved[j](0,0));
+                    } else {
+                        double det = 1.0;
+                        for (uint_t k = 0; k < d; ++k) {
+                            if (!element.missing[k]) {
+                                double delta = input(i,k) - parameters_.basisFunctionPositions(j,k);
+                                double covariance = element.covariancesObserved[j](k,k) + inputError(i,k); // GPzMatLab: PsiPlusSigma
+                                value += square(delta)/covariance;
+                                det *= covariance;
+                            }
+                        }
+
+                        double ldetobs = element.covariancesObservedLogDeterminant[j];
+                        value += log(det) - ldetobs;
+
+                        funcs(i,j) = exp(-0.5*value);
+                    }
                 }
             }
         } else {
-            // General code (any number of features)
+            // General code for any number of features
             if (inputError.rows() == 0) {
                 funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element).transpose();
             } else {
                 funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element).transpose();
             }
         }
-    }
+    };
+
+    parallel_for pool(optimizations_.enableMultithreading ? optimizations_.maxThreads : 0);
+    pool.execute(computeForSource, n);
 }
 
 Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
@@ -1532,6 +1567,9 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         requested == Minimize::FunctionOutput::ALL_TRAIN ||
         requested == Minimize::FunctionOutput::DERIVATIVES_TRAIN;
 
+    const bool diagonalCovariance = covarianceType_ == CovarianceType::VARIABLE_DIAGONAL ||
+                                    covarianceType_ == CovarianceType::GLOBAL_DIAGONAL;
+
     if (updateLikelihood) {
         logLikelihood_ = 0.0;
     }
@@ -1563,12 +1601,16 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     Eigen::LDLT<Mat2d> chol(modelCovariance);
     modelInvCovariance_ = computeInverseSymmetric(modelCovariance, chol);
 
-    // Mat2d solvedWeightedBasisFunctions = chol.solve(weightedBasisFunctions.transpose());
-    Mat2d solvedBasisFunctions = chol.solve(trainBasisFunctions_.transpose());
-    Mat2d solvedWeightedBasisFunctions = solvedBasisFunctions;
-    for (uint_t i = 0; i < n; ++i) {
-        solvedWeightedBasisFunctions.col(i) *= dataWeight[i];
-    }
+    parallel_for pool(optimizations_.enableMultithreading ? optimizations_.maxThreads : 0);
+
+    Mat2d solvedBasisFunctions(m,n);
+    Mat2d solvedWeightedBasisFunctions(m,n);
+    auto solveBasis = [&](uint_t i) {
+        solvedBasisFunctions.col(i) = chol.solve(trainBasisFunctions_.row(i).transpose());
+        solvedWeightedBasisFunctions.col(i) = solvedBasisFunctions.col(i)*dataWeight[i];
+    };
+
+    pool.execute(solveBasis, n);
 
     modelWeights_ = solvedWeightedBasisFunctions*outputTrain_.matrix();
 
@@ -1579,24 +1621,21 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
         // Log likelihood
         // ==============
 
-        logLikelihood_ = -0.5*(weightedDeviates.array()*deviates.array()).sum()
-            -0.5*(relevances.array()*modelWeights_.array().square()).sum()
-            +0.5*parameters_.basisFunctionLogRelevances.sum()
-            -0.5*computeLogDeterminant(chol)
-            +0.5*((-trainOutputLogError_).array()*weightTrain_.array()).sum()
-            -0.5*log(2.0*M_PI)*sumWeightTrain_;
+        double a1 = -0.5*(weightedDeviates.array()*deviates.array()).sum();
+        double a2 = -0.5*(relevances.array()*modelWeights_.array().square()).sum();
+        double a3 = +0.5*parameters_.basisFunctionLogRelevances.sum();
+        double a4 = -0.5*computeLogDeterminant(chol);
+        double a5 = +0.5*((-trainOutputLogError_).array()*weightTrain_.array()).sum();
+        double a6 = -0.5*log(2.0*M_PI)*sumWeightTrain_;
 
+        double a7 = 0.0, a8 = 0.0, a9 = 0.0;
         if (outputUncertaintyType_ == OutputUncertaintyType::INPUT_DEPENDENT) {
-            logLikelihood_ += -0.5*(errorWeightsSquared.array()*errorRelevances.array()).sum()
-                +0.5*parameters_.uncertaintyBasisLogRelevances.sum()
-                -0.5*m*log(2.0*M_PI);
+            a7 = -0.5*(errorWeightsSquared.array()*errorRelevances.array()).sum();
+            a8 = +0.5*parameters_.uncertaintyBasisLogRelevances.sum();
+            a9 = -0.5*m*log(2.0*M_PI);
         }
-    }
 
-    if (timeExecution) {
-        timeNow = now();
-        std::cout << "updateLikelihood " << timeNow - timePrev << std::endl;
-        timePrev = timeNow;
+        logLikelihood_ = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9;
     }
 
     if (updateDerivatives) {
@@ -1663,86 +1702,101 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             derivatives_.basisFunctionCovariances[i].fill(0.0);
         }
 
-        Mat2d derivInvCovariance; // GPzMatLab: diSoo
-        Mat2d covariance, derivCovariance;
-        Mat2d variance; // GPzMatLab: Psi(:,:,i)
-        Mat2d varianceObserved; // GPzMatLab: Psi(o,o,i)
-        Mat2d dgO, dgU;
-        Mat2d covObsInvL;
+        // Generic code for any number of feature and any covariance type
+        auto derivativeAddContribution = [&](uint_t j) {
+            Mat2d derivInvCovariance; // GPzMatLab: diSoo
+            Mat2d covariance, derivCovariance;
+            Mat1d variance; // GPzMatLab: Psi(:,:,i) (only diagonal)
+            Mat1d varianceObserved; // GPzMatLab: Psi(o,o,i) (only diagonal)
+            Mat2d dgO, dgU;
+            Mat2d covObsInvL;
 
-        for (uint_t i = 0; i < n; ++i) {
-            const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
+            for (uint_t i = 0; i < n; ++i) {
+                const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-            if (d == 1) {
-                // Specialization for one single feature (faster)
+                Mat1d delta = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
+                Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
 
-                for (uint_t j = 0; j < m; ++j) {
-                    double delta = inputTrain_(i,0) - parameters_.basisFunctionPositions(j,0); // GPzMatLab: Delta(i,:)
-                    double deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
-                    double derivInvCovarianceScalar; // GPzMatLab: diSoo
+                if (inputErrorTrain_.rows() == 0) {
+                    // Case with no input error
+                    deltaSolved = element.invCovariancesObserved[j]*delta;
+                    derivInvCovariance = (-0.5*derivBasis(i,j))*delta*delta.transpose();
+                } else {
+                    // Generic code for any covariance type
+                    variance = inputErrorTrain_.row(i);
+                    fetchVectorElements_(varianceObserved, variance, element, 'o');
 
-                    if (inputErrorTrain_.rows() == 0) {
-                        deltaSolved = element.invCovariancesObserved[j](0,0)*delta;
-                        derivInvCovarianceScalar = (-0.5*derivBasis(i,j))*square(delta);
-                    } else {
-                        double covarianceScalar = element.covariancesObserved[j](0,0) + inputErrorTrain_(i,0);
-                        deltaSolved = delta/covarianceScalar;
-                        derivInvCovarianceScalar = (-0.5*derivBasis(i,j))*element.covariancesObserved[j](0,0)*(
-                            1 + element.covariancesObserved[j](0,0)*(square(deltaSolved) - 1.0/covarianceScalar)
-                        );
-                    }
+                    covariance = element.covariancesObserved[j];
+                    covariance.diagonal() += varianceObserved;
 
-                    // Derivative wrt to basis positions
-                    // =================================
-                    derivatives_.basisFunctionPositions(j,0) += derivBasis(i,j)*deltaSolved;
+                    chol.compute(covariance);
+                    deltaSolved = chol.solve(delta);
 
-                    // Derivative wrt to basis covariances
-                    // =================================
-                    double dgOScalar = element.dgO[j](0,0)*derivInvCovarianceScalar;
-                    derivatives_.basisFunctionCovariances[j](0,0) += dgOScalar;
+                    Mat1d deltaSolvedCov = element.covariancesObserved[j]*deltaSolved;
+                    covObsInvL = chol.solve(element.covariancesObserved[j]);
+                    derivInvCovariance = (-0.5*derivBasis(i,j))*(
+                        element.covariancesObserved[j]
+                        - element.covariancesObserved[j]*covObsInvL.transpose()
+                        + deltaSolvedCov*deltaSolvedCov.transpose()
+                    );
                 }
-            } else {
-                // Generic code for any number of feature
 
-                for (uint_t j = 0; j < m; ++j) {
-                    Mat1d delta = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
-                    Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
+                // Derivative wrt to basis positions
+                // =================================
+                derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*deltaSolved.transpose();
 
-                    if (inputErrorTrain_.rows() == 0) {
-                        deltaSolved = element.invCovariancesObserved[j]*delta;
-                        derivInvCovariance = (-0.5*derivBasis(i,j))*delta*delta.transpose();
-                    } else {
-                        variance = inputErrorTrain_.row(i).asDiagonal();
-                        fetchMatrixElements_(varianceObserved, variance, element, 'o', 'o');
+                // Derivative wrt to basis covariances
+                // =================================
+                dgO = element.dgO[j]*derivInvCovariance;
+                addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
 
-                        covariance = element.covariancesObserved[j] + varianceObserved;
-                        chol.compute(covariance);
-                        deltaSolved = chol.solve(delta);
+                if (element.countMissing != 0) {
+                    dgU = -dgO*element.gUO[j].transpose();
+                    addMatrixElements_(dgU, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                }
+            }
+        };
 
-                        Mat1d deltaSolvedCov = element.covariancesObserved[j]*deltaSolved;
-                        covObsInvL = chol.solve(element.covariancesObserved[j]);
-                        derivInvCovariance = (-0.5*derivBasis(i,j))*(
-                            element.covariancesObserved[j]
-                            - element.covariancesObserved[j]*covObsInvL.transpose()
-                            + deltaSolvedCov*deltaSolvedCov.transpose()
-                        );
-                    }
+        // Specialization for one single feature or diagonal covariance (faster)
+        auto derivativeAddContributionDiag = [&](uint_t j) {
+            for (uint_t i = 0; i < n; ++i) {
+                const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-                    // Derivative wrt to basis positions
-                    // =================================
-                    derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*deltaSolved.transpose();
+                for (uint_t k = 0; k < d; ++k) {
+                    if (!element.missing[k]) {
+                        double delta = inputTrain_(i,k) - parameters_.basisFunctionPositions(j,k); // GPzMatLab: Delta(i,:)
+                        double deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
+                        double derivInvCovarianceScalar; // GPzMatLab: diSoo
 
-                    // Derivative wrt to basis covariances
-                    // =================================
-                    dgO = element.dgO[j]*derivInvCovariance;
-                    addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
+                        if (inputErrorTrain_.rows() == 0) {
+                            deltaSolved = element.invCovariancesObserved[j](k,k)*delta;
+                            derivInvCovarianceScalar = (-0.5*derivBasis(i,j))*square(delta);
+                        } else {
+                            double covarianceScalar = element.covariancesObserved[j](k,k) + inputErrorTrain_(i,k);
+                            deltaSolved = delta/covarianceScalar;
+                            derivInvCovarianceScalar = (-0.5*derivBasis(i,j))*element.covariancesObserved[j](k,k)*(
+                                1 + element.covariancesObserved[j](k,k)*(square(deltaSolved) - 1.0/covarianceScalar)
+                            );
+                        }
 
-                    if (element.countMissing != 0) {
-                        dgU = -dgO*element.gUO[j].transpose();
-                        addMatrixElements_(dgU, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                        // Derivative wrt to basis positions
+                        // =================================
+                        derivatives_.basisFunctionPositions(j,k) += derivBasis(i,j)*deltaSolved;
+
+                        // Derivative wrt to basis covariances
+                        // =================================
+                        double dgOScalar = element.dgO[j](k,k)*derivInvCovarianceScalar;
+                        derivatives_.basisFunctionCovariances[j](k,k) += dgOScalar;
                     }
                 }
             }
+        };
+
+        if ((d == 1 && optimizations_.specializeForSingleFeature) ||
+            (diagonalCovariance && optimizations_.specializeForDiagCovariance)) {
+            pool.execute(derivativeAddContributionDiag, m);
+        } else {
+            pool.execute(derivativeAddContribution, m);
         }
     }
 }
