@@ -193,7 +193,7 @@ namespace Minimize {
             gradient = output.tail(x.size());
             gdt = (gradient*direction).sum();
 
-            double gdtPrev = gdt;
+            double gdtPrev = oldGdt;
             double gradientStepPrev = 0.0;
             double metricPrev = oldMetric;
             Vec1d gradientPrev = oldGradient;
@@ -210,6 +210,8 @@ namespace Minimize {
 
             // Bracketing phase
             // ----------------
+
+            bool done = false;
 
             while (iter < maxIter) {
                 if (!checkLegalMove(metric, gradient)) {
@@ -239,6 +241,7 @@ namespace Minimize {
                     bracketMetric[1] = metric;
                     bracketGradient[0] = gradient;
                     bracketGradient[1] = gradient;
+                    done = true;
                     break;
                 } else if (gdt >= 0.0) {
                     bracketStep[0] = gradientStepPrev;
@@ -291,7 +294,6 @@ namespace Minimize {
             // Refine the bracket until we find a point satisfying the criteria.
 
             bool insufficientProgress = false;
-            bool done = false;
 
             while (!done && iter < maxIter) {
                 // Find high and low points in bracket
