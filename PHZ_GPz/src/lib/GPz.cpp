@@ -2231,6 +2231,14 @@ bool GPz::getVerboseMode() const {
     return verbose_;
 }
 
+void GPz::setOptimizationFlags(GPzOptimizations optimizations) {
+    optimizations_ = optimizations;
+}
+
+GPzOptimizations GPz::getOptimizationFlags() const {
+    return optimizations_;
+}
+
 // =====================
 // Fit/training function
 // =====================

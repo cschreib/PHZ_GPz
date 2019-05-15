@@ -283,6 +283,35 @@ struct GPzModel {
     Vec1d modelInputPrior;
 };
 
+/**
+ * @struct GPzModel
+ * @brief Store the optimization toggles for the GPz algorithm
+ *
+ */
+struct GPzOptimizations {
+    bool specializeForSingleFeature = true;
+    bool specializeForDiagCovariance = true;
+    bool enableMultithreading = true;
+    uint_t maxThreads = 4;
+};
+
+/** \var PHZ_GPz::GPzOptimizations::specializeForSingleFeature
+ * @brief Enable dedicated code for runs with a single feature.
+ */
+
+/** \var PHZ_GPz::GPzOptimizations::specializeForDiagCovariance
+ * @brief Enable dedicated code for runs with diagonal covariances.
+ */
+
+/** \var PHZ_GPz::GPzOptimizations::enableMultithreading
+ * @brief Enable parallel execution in some parts of the code.
+ */
+
+/** \var PHZ_GPz::GPzOptimizations::maxThreads
+ * @brief Maximum number of concurrent threads allowed at a given time.
+ */
+
+
 // =========
 // GPz class
 // =========
@@ -312,6 +341,7 @@ class GPz {
     double                     optimizationTolerance_ = 1e-9;
     double                     optimizationGradientTolerance_ = 1e-5;
     bool                       verbose_ = false;
+    GPzOptimizations           optimizations_;
 
     // ==================
     // Indexing variables
@@ -661,6 +691,10 @@ public:
     void setVerboseMode(bool verbose);
 
     bool getVerboseMode() const;
+
+    void setOptimizationFlags(GPzOptimizations optimizations);
+
+    GPzOptimizations getOptimizationFlags() const;
 
     // =====================
     // Fit/training function
