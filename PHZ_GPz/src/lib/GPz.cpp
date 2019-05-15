@@ -2374,6 +2374,10 @@ GPzOptimizations GPz::getOptimizationFlags() const {
     return optimizations_;
 }
 
+void GPz::setProfileTraining(bool profile) {
+    profileTraining_ = profile;
+}
+
 // =====================
 // Fit/training function
 // =====================
