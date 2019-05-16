@@ -2497,8 +2497,55 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 // ========================
 
 void GPz::loadModel(const GPzModel& model) {
-    setNumberOfBasisFunctions(model.modelWeights.size());
-    setNumberOfFeatures(model.featureMean.size());
+    int tmpNumBF = model.modelWeights.size();
+    int tmpNumFeature = model.featureMean.size();
+
+    if (model.featureMean.size() != tmpNumFeature) {
+        throw std::runtime_error("wrong size for featureMean");
+    }
+    if (model.featureSigma.size() != tmpNumFeature) {
+        throw std::runtime_error("wrong size for featureSigma");
+    }
+    if (model.modelWeights.size() != tmpNumBF) {
+        throw std::runtime_error("wrong size for modelWeights");
+    }
+    if (model.modelInputPrior.size() != tmpNumBF) {
+        throw std::runtime_error("wrong size for modelInputPrior");
+    }
+    if (model.modelInvCovariance.rows() != tmpNumBF) {
+        throw std::runtime_error("wrong number of rows for modelInvCovariance");
+    }
+    if (model.modelInvCovariance.cols() != tmpNumBF) {
+        throw std::runtime_error("wrong number of columns for modelInvCovariance");
+    }
+    if (model.parameters.basisFunctionPositions.rows() != tmpNumBF) {
+        throw std::runtime_error("wrong number of rows for basisFunctionPositions");
+    }
+    if (model.parameters.basisFunctionPositions.cols() != tmpNumFeature) {
+        throw std::runtime_error("wrong number of columns for basisFunctionPositions");
+    }
+    if (model.parameters.basisFunctionLogRelevances.size() != tmpNumBF) {
+        throw std::runtime_error("wrong number of columns for basisFunctionLogRelevances");
+    }
+    if (model.parameters.basisFunctionCovariances.size() != static_cast<uint_t>(tmpNumBF)) {
+        throw std::runtime_error("wrong size for basisFunctionCovariances");
+    }
+    if (model.parameters.basisFunctionCovariances[0].rows() != tmpNumFeature) {
+        throw std::runtime_error("wrong number of rows for basisFunctionCovariances");
+    }
+    if (model.parameters.basisFunctionCovariances[0].cols() != tmpNumFeature) {
+        throw std::runtime_error("wrong number of columns for basisFunctionCovariances");
+    }
+    if (model.parameters.uncertaintyBasisWeights.size() != tmpNumBF) {
+        throw std::runtime_error("wrong size for uncertaintyBasisWeights");
+    }
+    if (model.parameters.uncertaintyBasisWeights.size() != tmpNumBF) {
+        throw std::runtime_error("wrong size for uncertaintyBasisLogRelevances");
+    }
+
+    setNumberOfBasisFunctions(tmpNumBF);
+    setNumberOfFeatures(tmpNumFeature);
+
     setPriorMeanFunction(model.priorMean);
     setOutputUncertaintyType(model.outputUncertaintyType);
     setNormalizationScheme(model.normalizationScheme);
