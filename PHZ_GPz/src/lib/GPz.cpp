@@ -1575,7 +1575,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     }
 
     // Pre-compute things
-    double timePrev, timeNow;
+    double timePrev = 0, timeNow = 0;
     if (profileTraining_) {
         std::cout << "#### " << (int)requested << std::endl;
         timePrev = now();
