@@ -2169,8 +2169,8 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
             Mat1d Delta = parameters_.basisFunctionPositions.row(i)
                         - parameters_.basisFunctionPositions.row(j);
 
-            lnZ(i,j) = -0.5*noMissingCache_->covariancesObservedLogDeterminant[i]
-                -0.5*noMissingCache_->covariancesObservedLogDeterminant[j]
+            lnZ(i,j) = +0.5*noMissingCache_->covariancesObservedLogDeterminant[i]
+                +0.5*noMissingCache_->covariancesObservedLogDeterminant[j]
                 -0.5*svd.solve(Delta).transpose()*Delta
                 -0.5*computeLogDeterminant(svd);
         }
