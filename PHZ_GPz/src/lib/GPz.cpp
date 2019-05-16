@@ -1976,7 +1976,7 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
 
     // No missing data, but we have noisy inputs
 
-    Mat1d basis = evaluateBasisFunctions_(input, Mat1d{}, element);
+    Mat1d basis = evaluateBasisFunctions_(input, inputError, element);
 
     value = basis.transpose()*modelWeights_; // GPzMatLab: mu
 
