@@ -1106,7 +1106,7 @@ void GPz::fetchVectorElements_(Mat1d& out, const Mat1d& in, const MissingCacheEl
     }
 }
 
-void GPz::addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElement& element,
+void GPz::addMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
     char first, char second) const {
 
     const uint_t d = numberFeatures_;
@@ -1891,11 +1891,11 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
                 // Derivative wrt to basis covariances
                 // =================================
                 dgO = element.dgO[j]*derivInvCovariance;
-                addMatrixElements_(dgO, derivatives_.basisFunctionCovariances[j], element, ':', 'o');
+                addMatrixElements_(derivatives_.basisFunctionCovariances[j], dgO, element, ':', 'o');
 
                 if (element.countMissing != 0) {
                     dgU = -dgO*element.gUO[j].transpose();
-                    addMatrixElements_(dgU, derivatives_.basisFunctionCovariances[j], element, ':', 'u');
+                    addMatrixElements_(derivatives_.basisFunctionCovariances[j], dgU, element, ':', 'u');
                 }
             }
         };
@@ -2189,7 +2189,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
             Psi_hat[i] = t*errorObserved.asDiagonal()*t.transpose();
         }
 
-        addMatrixElements_(element.Psi_hat[i], Psi_hat[i], element, 'u', 'u');
+        addMatrixElements_(Psi_hat[i], element.Psi_hat[i], element, 'u', 'u');
     }
 
     Pio /= Pio.sum();

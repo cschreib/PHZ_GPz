@@ -517,7 +517,7 @@ class GPz {
     void fetchVectorElements_(Mat1d& out, const Mat1d& in, const MissingCacheElement& element,
         char first) const;
 
-    void addMatrixElements_(const Mat2d& in, Mat2d& out, const MissingCacheElement& element,
+    void addMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
         char first, char second) const;
 
     Mat2d initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) const;
