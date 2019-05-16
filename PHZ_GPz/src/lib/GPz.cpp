@@ -1405,7 +1405,7 @@ void GPz::updateValidOutputErrors_() {
     validOutputLogError_ = evaluateOutputLogErrors_(validBasisFunctions_);
 }
 
-Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
+Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
 
     Eigen::JacobiSVD<Mat2d> svd;
@@ -1445,6 +1445,73 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
     }
 
     return funcs;
+}
+
+Mat1d GPz::evaluateBasisFunctionsDiag_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
+    const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
+
+    const double log2 = log(2.0);
+
+    Mat1d funcs(m);
+
+    // Specialization of code for one single feature or diagonal covariances (faster)
+    if (inputError.rows() == 0) {
+        for (uint_t j = 0; j < m; ++j) {
+            double value = log2*element.countMissing;
+
+            for (uint_t k = 0; k < d; ++k) {
+                if (!element.missing[k]) {
+                    double delta = input[k] - parameters_.basisFunctionPositions(j,k);
+                    value += square(delta)*element.invCovariancesObserved[j](k,k);
+                }
+            }
+
+            funcs[j] = exp(-0.5*value);
+        }
+    } else {
+        for (uint_t j = 0; j < m; ++j) {
+            double value = log2*element.countMissing;
+
+            if (d == 1) {
+                double delta = input[0] - parameters_.basisFunctionPositions(j,0);
+                double covariance = element.covariancesObserved[j](0,0) + inputError[0]; // GPzMatLab: PsiPlusSigma
+                value += square(delta)/covariance;
+                funcs[j] = exp(-0.5*value)/sqrt(1.0 + inputError[0]/element.covariancesObserved[j](0,0));
+            } else {
+                double det = 1.0;
+                for (uint_t k = 0; k < d; ++k) {
+                    if (!element.missing[k]) {
+                        double delta = input[k] - parameters_.basisFunctionPositions(j,k);
+                        double covariance = element.covariancesObserved[j](k,k) + inputError[k]; // GPzMatLab: PsiPlusSigma
+                        value += square(delta)/covariance;
+                        det *= covariance;
+                    }
+                }
+
+                double ldetobs = element.covariancesObservedLogDeterminant[j];
+                value += log(det) - ldetobs;
+
+                funcs[j] = exp(-0.5*value);
+            }
+        }
+    }
+
+    return funcs;
+}
+
+Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
+    const uint_t d = numberFeatures_;
+
+    const bool diagonalCovariance = covarianceType_ == CovarianceType::VARIABLE_DIAGONAL ||
+                                    covarianceType_ == CovarianceType::GLOBAL_DIAGONAL;
+
+    if ((d == 1 && optimizations_.specializeForSingleFeature) ||
+        (diagonalCovariance == optimizations_.specializeForDiagCovariance)) {
+        return evaluateBasisFunctionsDiag_(input, inputError, element);
+    } else {
+        return evaluateBasisFunctionsGeneral_(input, inputError, element);
+    }
 }
 
 void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
@@ -1511,9 +1578,9 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
         } else {
             // General code for any number of features
             if (inputError.rows() == 0) {
-                funcs.row(i) = evaluateBasisFunctions_(input.row(i), Mat1d{}, element).transpose();
+                funcs.row(i) = evaluateBasisFunctionsGeneral_(input.row(i), Mat1d{}, element).transpose();
             } else {
-                funcs.row(i) = evaluateBasisFunctions_(input.row(i), inputError.row(i), element).transpose();
+                funcs.row(i) = evaluateBasisFunctionsGeneral_(input.row(i), inputError.row(i), element).transpose();
             }
         }
     };
