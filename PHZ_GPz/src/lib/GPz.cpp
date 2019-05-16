@@ -1975,6 +1975,10 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
 
     const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
+
+    const bool diagonalCovariance = covarianceType_ == CovarianceType::VARIABLE_DIAGONAL ||
+                                    covarianceType_ == CovarianceType::GLOBAL_DIAGONAL;
 
     // No missing data, but we have noisy inputs
 
@@ -1986,34 +1990,73 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     varianceInputNoise = 0.0; // GPzMatLab: gamma
     double VlnS = 0.0;
 
-    for (uint_t i = 0; i < m; ++i)
-    for (uint_t j = 0; j <= i; ++j) {
-        Mat2d iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
+    if ((d == 1 && optimizations_.specializeForSingleFeature) ||
+        (diagonalCovariance && optimizations_.specializeForDiagCovariance)) {
+        // Specialized version for one feature or diagonal covariances (faster)
 
-        Eigen::JacobiSVD<Mat2d> svd(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+        for (uint_t i = 0; i < m; ++i)
+        for (uint_t j = 0; j <= i; ++j) {
+            double lnNxc = 0.0;
+            double det = 1.0;
+            for (uint_t k = 0; k < d; ++k) {
+                double icovi = element.invCovariancesObserved[i](k,k);
+                double icovj = element.invCovariancesObserved[j](k,k);
+                double posi = parameters_.basisFunctionPositions(i,k);
+                double posj = parameters_.basisFunctionPositions(j,k);
 
-        Mat2d Cij = computeInverseSymmetric(iCij, svd);
-        Mat1d cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
-                  + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
+                double Cij = 1.0/(icovi + icovj);
+                double cij = Cij*(posi*icovi + posj*icovj);
 
-        cij = svd.solve(cij);
+                double Delta = input[k] - cij;
 
-        Mat1d Delta = parameters_.basisFunctionPositions.row(i)
-                    - parameters_.basisFunctionPositions.row(j);
+                Cij += inputError[k];
+                lnNxc -= 0.5*square(Delta)/Cij;
+                det *= Cij;
+            }
 
-        // Now this is source-specific
+            double ZijNxc = exp(lnZ(i,j) + lnNxc)/sqrt(det);
 
-        Delta = input - cij;
-        Cij.diagonal() += inputError;
-        svd.compute(Cij);
+            double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
+            varianceTrainDensity += coef*modelInvCovariance_(i,j);
+            varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+            VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+        }
+    } else {
+        // Generic version for any number of features and any covariance type
+        Eigen::JacobiSVD<Mat2d> svd;
+        Mat2d iCij;
+        Mat2d Cij;
+        Mat1d cij;
+        Mat1d Delta;
+        Mat1d DeltaSolved;
 
-        double lnNxc = -0.5*svd.solve(Delta).transpose()*Delta - 0.5*computeLogDeterminant(svd);
-        double ZijNxc = exp(lnZ(i,j) + lnNxc);
+        for (uint_t i = 0; i < m; ++i)
+        for (uint_t j = 0; j <= i; ++j) {
+            iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
 
-        double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
-        varianceTrainDensity += coef*modelInvCovariance_(i,j);
-        varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
-        VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+            svd.compute(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+            Cij = computeInverseSymmetric(iCij, svd);
+            cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
+                + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
+
+            cij = svd.solve(cij);
+
+            // Now this is source-specific
+
+            Delta = input - cij;
+            Cij.diagonal() += inputError;
+            svd.compute(Cij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+            DeltaSolved = svd.solve(Delta);
+            double lnNxc = -0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd);
+            double ZijNxc = exp(lnZ(i,j) + lnNxc);
+
+            double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
+            varianceTrainDensity += coef*modelInvCovariance_(i,j);
+            varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+            VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+        }
     }
 
     varianceInputNoise -= value*value;
