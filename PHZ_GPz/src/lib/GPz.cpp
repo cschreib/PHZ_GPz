@@ -2179,7 +2179,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
     }
 
     // Iterate over galaxies
-    for (uint_t i = 0; i < n; ++i) {
+    auto doPrediction = [&](uint_t i) {
         const MissingCacheElement& element = getMissingCacheElement_(missing[i]);
 
         if (element.countMissing == 0) {
@@ -2204,7 +2204,10 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
                     result.varianceInputNoise[i]);
             }
         }
-    }
+    };
+
+    parallel_for pool(optimizations_.enableMultithreading ? optimizations_.maxThreads : 0);
+    pool.execute(doPrediction, n);
 
     result.variance = result.varianceTrainDensity + result.varianceTrainNoise
         + result.varianceInputNoise;
