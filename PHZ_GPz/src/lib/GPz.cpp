@@ -2308,6 +2308,8 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
                 predictMissingNoisy_(input.row(i), Mat1d{}, element, result.value[i],
                     result.varianceTrainDensity[i], result.varianceTrainNoise[i],
                     result.varianceInputNoise[i]);
+
+                // NB: varianceInputNoise includes noise contribution from missing variables
             } else {
                 predictMissingNoisy_(input.row(i), inputError.row(i), element, result.value[i],
                     result.varianceTrainDensity[i], result.varianceTrainNoise[i],
