@@ -1415,9 +1415,11 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
     Mat1d varianceObserved;
     Mat2d covariance;
 
+    const double log2 = log(2.0);
+
     Mat1d funcs(m);
     for (uint_t j = 0; j < m; ++j) {
-        double value = log(2.0)*element.countMissing;
+        double value = log2*element.countMissing;
 
         delta = input - parameters_.basisFunctionPositions.row(j).transpose(); // GPzMatLab: Delta(i,:)
 
