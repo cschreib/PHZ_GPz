@@ -713,6 +713,10 @@ public:
 
     GPzModel getModel() const;
 
+    void readModelFromFile(const std::string& fileName);
+
+    void writeModelToFile(const std::string& filename) const;
+
     // ===================
     // Prediction function
     // ===================
