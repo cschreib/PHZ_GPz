@@ -266,18 +266,18 @@ void GPz::resizeHyperParameters_(GPzHyperParameters& params) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
-    params.basisFunctionPositions.resize(m,d);
-    params.basisFunctionLogRelevances.resize(m);
+    params.basisFunctionPositions.setZero(m,d);
+    params.basisFunctionLogRelevances.setZero(m);
     params.basisFunctionCovariances.resize(m);
     for (uint_t i = 0; i < m; ++i) {
-        params.basisFunctionCovariances[i].resize(d,d);
+        params.basisFunctionCovariances[i].setZero(d,d);
     }
 
     // TODO: Save memory: basisFunctionCovariances only needs one element
     // when the covariance type is any of the GLOBAL_* types.
 
-    params.uncertaintyBasisWeights.resize(m);
-    params.uncertaintyBasisLogRelevances.resize(m);
+    params.uncertaintyBasisWeights.setZero(m);
+    params.uncertaintyBasisLogRelevances.setZero(m);
 }
 
 
@@ -361,13 +361,13 @@ void GPz::resizeArrays_() {
     resizeHyperParameters_(derivatives_);
 
     if (normalizationScheme_ == NormalizationScheme::WHITEN) {
-        featureMean_.resize(d);
-        featureSigma_.resize(d);
+        featureMean_.setZero(d);
+        featureSigma_.setZero(d);
     }
 
-    featurePCAMean_.resize(d);
-    featurePCASigma_.resize(d,d);
-    featurePCABasisVectors_.resize(d,d);
+    featurePCAMean_.setZero(d);
+    featurePCASigma_.setZero(d,d);
+    featurePCABasisVectors_.setZero(d,d);
 
     if (verbose_) {
         std::cout << "allocated memory for fit parameters" << std::endl;
@@ -730,7 +730,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 
             // Compute histogram of counts in bins
             uint_t maxCount = 0;
-            weight.resize(output.rows());
+            weight.setZero(output.rows());
             histogram(output, bins, [&](uint_t /*index*/, histogram_iterator begin, histogram_iterator end) {
                 uint_t count = end - begin;
                 for (histogram_iterator iter = begin; iter != end; ++iter) {
@@ -1327,7 +1327,7 @@ void GPz::updateMissingCache_(MissingCacheUpdate what) const {
     for (auto& cacheItem : missingCache_) {
         cacheItem.covariancesObserved.resize(m);
         cacheItem.invCovariancesObserved.resize(m);
-        cacheItem.covariancesObservedLogDeterminant.resize(m);
+        cacheItem.covariancesObservedLogDeterminant.setZero(m);
         if (what == MissingCacheUpdate::TRAIN) {
             cacheItem.gUO.resize(m);
             cacheItem.dgO.resize(m);
@@ -2177,8 +2177,8 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
             }
         }
 
-        if (noError) {
-            Psi_hat[i].resize(d,d);
+        if (noError || element.countMissing == d) {
+            Psi_hat[i].setZero(d,d);
         } else {
             Mat1d errorObserved;
             fetchVectorElements_(errorObserved, inputError, element, 'o');
@@ -2264,13 +2264,13 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
     const bool noError = inputError.rows() == 0;
 
     GPzOutput result;
-    result.value.resize(n);
-    result.varianceTrainDensity.resize(n);
-    result.varianceTrainNoise.resize(n);
-    result.varianceInputNoise.resize(n);
+    result.value.setZero(n);
+    result.varianceTrainDensity.setZero(n);
+    result.varianceTrainNoise.setZero(n);
+    result.varianceInputNoise.setZero(n);
 
     // Compute cached variables
-    lnZ.resize(m,m); {
+    lnZ.setZero(m,m); {
         for (uint_t i = 0; i < m; ++i)
         for (uint_t j = 0; j <= i; ++j) {
             Mat2d Sij = noMissingCache_->covariancesObserved[i]
