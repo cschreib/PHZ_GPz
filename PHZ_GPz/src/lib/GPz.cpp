@@ -2245,11 +2245,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         } else {
             Mat1d errorObserved;
             fetchVectorElements_(errorObserved, inputError, element, 'o');
-            Mat2d t(d, no);
-            t.block(0,  0, no, no) = Mat2d::Identity(no, no);
-            t.block(no, 0, nu, no) = element.R[i].transpose();
-
-            Psi_hat[i] = t*errorObserved.asDiagonal()*t.transpose();
+            Psi_hat[i] = element.T[i]*errorObserved.asDiagonal()*element.T[i].transpose();
         }
 
         addMatrixElements_(Psi_hat[i], element.Psi_hat[i], element, 'u', 'u');
