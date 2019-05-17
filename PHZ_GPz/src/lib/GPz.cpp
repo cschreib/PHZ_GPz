@@ -969,7 +969,7 @@ Vec1i GPz::getBestMissingID_(const Mat2d& input) const {
 
         // See if this combination of missing bands exists in the cache
         int bestDistance = d+1;
-        int bestID = 0;
+        int bestID = -1;
         for (auto& cacheItem : missingCache_) {
             int distance = 0;
             bool match = true;
@@ -994,6 +994,8 @@ Vec1i GPz::getBestMissingID_(const Mat2d& input) const {
                 bestID = cacheItem.id;
             }
         }
+
+        assert(bestID >= 0 && "bug: object not found in missing cache");
 
         result[i] = bestID;
     }
