@@ -1335,56 +1335,93 @@ void GPz::updateMissingCache_(MissingCacheUpdate what) const {
             cacheItem.dgO.resize(m);
         } else if (what == MissingCacheUpdate::PREDICT) {
             cacheItem.R.resize(m);
+            cacheItem.T.resize(m);
             cacheItem.Psi_hat.resize(m);
         }
 
         for (uint_t i = 0; i < m; ++i) {
             const Mat2d& fullGamma = parameters_.basisFunctionCovariances[i]; // GPzMatLab: Gamma(:,:,i)
 
-            // Fetch elements of the covariance matrix for non-missing bands
-            fetchMatrixElements_(cacheItem.covariancesObserved[i], sigma[i], cacheItem, 'o', 'o');
+            if (cacheItem.countMissing < d) {
+                // Fetch elements of the covariance matrix for non-missing bands
+                fetchMatrixElements_(cacheItem.covariancesObserved[i], sigma[i], cacheItem, 'o', 'o');
 
-            // Compute inverse
-            cacheItem.invCovariancesObserved[i] = computeInverseSymmetric(cacheItem.covariancesObserved[i]);
+                // Compute inverse
+                cacheItem.invCovariancesObserved[i] = computeInverseSymmetric(cacheItem.covariancesObserved[i]);
 
-            // Compute log determinant
-            cacheItem.covariancesObservedLogDeterminant[i] = computeLogDeterminant(cacheItem.covariancesObserved[i]);
+                // Compute log determinant
+                cacheItem.covariancesObservedLogDeterminant[i] = computeLogDeterminant(cacheItem.covariancesObserved[i]);
+            } else {
+                // All bands missing
+                cacheItem.covariancesObserved[i].setZero(0,0);
+                cacheItem.invCovariancesObserved[i].setZero(0,0);
+                cacheItem.covariancesObservedLogDeterminant[i] = 0.0;
+            }
 
             if (what == MissingCacheUpdate::TRAIN) {
                 if (cacheItem.countMissing != 0) {
                     // Compute gUO and dgO (for training)
                     Mat2d isigmaMissing;  // GPzMatLab: iSigma(u,u)
-                    Mat2d isigmaObserved; // GPzMatLab: iSigma(u,o)
-                    fetchMatrixElements_(isigmaMissing,  isigma[i], cacheItem, 'u', 'u');
-                    fetchMatrixElements_(isigmaObserved, isigma[i], cacheItem, 'u', 'o');
+                    Mat2d isigmaMixed; // GPzMatLab: iSigma(u,o)
+                    fetchMatrixElements_(isigmaMissing, isigma[i], cacheItem, 'u', 'u');
+                    fetchMatrixElements_(isigmaMixed,   isigma[i], cacheItem, 'u', 'o');
 
                     Mat2d gammaMissing;  // GPzMatLab: Gamma(:,u,i)
                     Mat2d gammaObserved; // GPzMatLab: Gamma(:,o,i)
-                    fetchMatrixElements_(gammaMissing,   fullGamma, cacheItem, ':', 'u');
-                    fetchMatrixElements_(gammaObserved,  fullGamma, cacheItem, ':', 'o');
+                    fetchMatrixElements_(gammaMissing,  fullGamma, cacheItem, ':', 'u');
+                    fetchMatrixElements_(gammaObserved, fullGamma, cacheItem, ':', 'o');
 
-                    cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaObserved;
+                    cacheItem.gUO[i] = computeInverseSymmetric(isigmaMissing)*isigmaMixed;
                     cacheItem.dgO[i] = 2*(gammaObserved - gammaMissing*cacheItem.gUO[i]);
                 } else {
-                    cacheItem.gUO[i].resize(0,0);
+                    cacheItem.gUO[i].setZero(0,0);
                     cacheItem.dgO[i] = 2*fullGamma;
                 }
             }
 
             if (what == MissingCacheUpdate::PREDICT) {
-                if (cacheItem.countMissing != 0) {
-                    // Compute R and Psi_hat (for prediction)
+                // Compute R and Psi_hat (for prediction)
+                if (cacheItem.countMissing == 0) {
+                    // No missing data, these variables are not used
+                    cacheItem.Psi_hat[i].resize(0,0);
+                    cacheItem.T[i].resize(0,0);
+                    cacheItem.R[i].resize(0,0);
+                } else if (cacheItem.countMissing == d) {
+                    // All data missing, special case
+                    cacheItem.Psi_hat[i] = sigma[i];
+                    cacheItem.T[i].setZero(d,0);
+                    cacheItem.R[i].setZero(0,d);
+                } else {
+                    // Just some data missing
                     Mat2d sigmaMissing;  // GPzMatLab: Sigma(u,u)
-                    Mat2d sigmaObserved; // GPzMatLab: Sigma(u,o)
+                    Mat2d sigmaObserved; // GPzMatLab: Sigma(o,o)
+                    Mat2d sigmaMixed; // GPzMatLab: Sigma(o,u)
                     fetchMatrixElements_(sigmaMissing,  sigma[i], cacheItem, 'u', 'u');
-                    fetchMatrixElements_(sigmaObserved, sigma[i], cacheItem, 'u', 'o');
+                    fetchMatrixElements_(sigmaObserved, sigma[i], cacheItem, 'o', 'o');
+                    fetchMatrixElements_(sigmaMixed,    sigma[i], cacheItem, 'o', 'u');
 
                     Eigen::LDLT<Mat2d> cholesky(sigmaObserved);
-                    cacheItem.R[i] = cholesky.solve(sigmaMissing.transpose());
-                    cacheItem.Psi_hat[i] = sigmaMissing - sigmaObserved*cacheItem.R[i];
-                } else {
-                    cacheItem.R[i].resize(0,0);
-                    cacheItem.Psi_hat[i].resize(0,0);
+                    cacheItem.R[i] = cholesky.solve(sigmaMixed);
+                    cacheItem.Psi_hat[i] = sigmaMissing - sigmaMixed.transpose()*cacheItem.R[i];
+
+                    uint_t no = d - cacheItem.countMissing;
+                    uint_t nu = cacheItem.countMissing;
+
+                    // Original MatLab code
+                    cacheItem.T[i].setZero(d, no);
+                    cacheItem.T[i].block(0,  0, no, no) = Mat2d::Identity(no, no);
+                    cacheItem.T[i].block(no, 0, nu, no) = cacheItem.R[i].transpose();
+
+                    // What I think is correct
+                    // cacheItem.T[i].setZero(d, no);
+                    // for (uint_t k = 0, l = 0; k < d; ++k) {
+                    //     if (cacheItem.missing[k]) {
+                    //         cacheItem.T[i].row(k) = cacheItem.R[i].col(k);
+                    //     } else {
+                    //         cacheItem.T[i](k,l) = 1.0;
+                    //         ++l;
+                    //     }
+                    // }
                 }
             }
         }

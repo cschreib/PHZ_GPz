@@ -396,8 +396,9 @@ class GPz {
 
         // For prediction
 
-        std::vector<Mat2d> Psi_hat;                // [:,:], GPz MatLab: Psi_hat
-        std::vector<Mat2d> R;                      // [:,:], GPz MatLab: R
+        std::vector<Mat2d> Psi_hat;                // [u,u], GPz MatLab: Psi_hat
+        std::vector<Mat2d> R;                      // [o,u], GPz MatLab: R
+        std::vector<Mat2d> T;                      // [:,o], GPz MatLab: T
     };
 
     mutable std::vector<MissingCacheElement> missingCache_;
