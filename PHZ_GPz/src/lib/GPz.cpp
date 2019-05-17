@@ -2201,39 +2201,39 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
 
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
-    const uint_t nu = element.countMissing;
-    const uint_t no = d - nu;
     const bool noError = inputError.rows() == 0;
 
     Mat2d filledInput(d,m); // GPzMatLab: X_hat
     Mat1d Pio(m); // GPzMatLab: Ex & Pio (combined)
+    Mat1d varianceObserved;
     std::vector<Mat2d> Psi_hat(m); // GPzMatLab: Psi_hat
 
     for (uint_t i = 0; i < m; ++i) {
-        Mat2d sigma = element.covariancesObserved[i];
-        if (!noError) {
-            sigma.diagonal() += inputError;
-        }
-
-        Eigen::JacobiSVD<Mat2d> svd(sigma, Eigen::ComputeThinU | Eigen::ComputeThinV);
         Mat1d position = parameters_.basisFunctionPositions.row(i);
         Mat1d Delta = input - position;
         Mat1d DeltaObserved;
         fetchVectorElements_(DeltaObserved, Delta, element, 'o');
 
-        Pio[i] = -0.5*svd.solve(DeltaObserved).transpose()*DeltaObserved
-            -0.5*computeLogDeterminant(svd);
-        Pio[i] = exp(Pio[i])*modelInputPrior_[i];
+        if (element.countMissing < d) {
+            Mat2d sigma = element.covariancesObserved[i];
+            if (!noError) {
+                fetchVectorElements_(varianceObserved, inputError, element, 'o');
+                sigma.diagonal() += varianceObserved;
+            }
+
+            Eigen::JacobiSVD<Mat2d> svd(sigma, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            Pio[i] = -0.5*svd.solve(DeltaObserved).transpose()*DeltaObserved
+                -0.5*computeLogDeterminant(svd);
+            Pio[i] = exp(Pio[i])*modelInputPrior_[i];
+        }
 
         Mat1d positionMissing; // GPzMatLab: P(i,~o)
         fetchVectorElements_(positionMissing, position, element, 'u');
 
-        Mat1d inputNew = element.R[i]*DeltaObserved + positionMissing;
-
-        uint_t k = 0;
-        for (uint_t j = 0; j < d; ++j) {
+        Mat1d inputMissing = element.R[i].transpose()*DeltaObserved + positionMissing;
+        for (uint_t j = 0, k = 0; j < d; ++j) {
             if (element.missing[j]) {
-                filledInput(j,i) = inputNew[k];
+                filledInput(j,i) = inputMissing[k];
                 ++k;
             } else {
                 filledInput(j,i) = input[j];
@@ -2259,41 +2259,50 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
     varianceInputNoise = 0.0; // GPzMatLab: gamma
     double VlnS = 0.0;
 
+    Eigen::JacobiSVD<Mat2d> svd;
+    Mat2d iCij;
+    Mat2d Cij;
+    Mat1d cij;
+    Mat1d Delta;
+    Mat1d DeltaSolved;
+    Mat2d Sij;
+
     for (uint_t i = 0; i < m; ++i)
     for (uint_t j = 0; j <= i; ++j) {
-        Mat2d iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
+        iCij = noMissingCache_->invCovariancesObserved[i] + noMissingCache_->invCovariancesObserved[j];
 
-        Eigen::JacobiSVD<Mat2d> svd(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+        svd.compute(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-        Mat2d Cij = computeInverseSymmetric(iCij, svd);
-        Mat1d cij = element.invCovariancesObserved[i]*parameters_.basisFunctionPositions.row(i)
-                  + element.invCovariancesObserved[j]*parameters_.basisFunctionPositions.row(j);
+        Cij = computeInverseSymmetric(iCij, svd);
+        cij = parameters_.basisFunctionPositions.row(i)*noMissingCache_->invCovariancesObserved[i]
+            + parameters_.basisFunctionPositions.row(j)*noMissingCache_->invCovariancesObserved[j];
 
         cij = svd.solve(cij);
 
-        Mat1d Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i).transpose();
-        Mat2d Sij = noMissingCache_->covariancesObserved[i] + Psi_hat[j];
-        svd.compute(Sij);
-        double N = exp(-0.5*svd.solve(Delta).transpose()*Delta
-                -0.5*computeLogDeterminant(svd));
+        Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i).transpose();
+        Sij = noMissingCache_->covariancesObserved[i] + Psi_hat[j];
+        svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
+        DeltaSolved = svd.solve(Delta);
+        double N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
         basis[i] += (i == j ? 1.0 : 2.0)*N*Pio[j];
 
         Delta = filledInput.col(i) - parameters_.basisFunctionPositions.row(j).transpose();
         Sij = noMissingCache_->covariancesObserved[j] + Psi_hat[i];
         svd.compute(Sij);
-        N = exp(-0.5*svd.solve(Delta).transpose()*Delta
-                -0.5*computeLogDeterminant(svd));
 
+        DeltaSolved = svd.solve(Delta);
+        N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
         basis[j] += (i == j ? 1.0 : 2.0)*N*Pio[i];
 
         double EcCij = 0.0;
         for (uint_t l = 0; l < m; ++l) {
             Delta = filledInput.col(l) - cij;
             Sij = Cij + Psi_hat[l];
-            svd.compute(Sij);
-            N = exp(-0.5*svd.solve(Delta).transpose()*Delta
-                    -0.5*computeLogDeterminant(svd));
+            svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+            DeltaSolved = svd.solve(Delta);
+            N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
 
             EcCij += N*Pio[l];
         }
