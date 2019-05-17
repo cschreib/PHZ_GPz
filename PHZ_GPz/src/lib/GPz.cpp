@@ -1317,6 +1317,7 @@ bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) con
 
 void GPz::updateMissingCache_(MissingCacheUpdate what) const {
     const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
 
     std::vector<Mat2d> isigma(m);
     std::vector<Mat2d> sigma(m);
@@ -1446,13 +1447,15 @@ void GPz::updateValidOutputErrors_() {
 
 Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
+    const uint_t d = numberFeatures_;
 
     Eigen::JacobiSVD<Mat2d> svd;
 
-    Mat1d delta;
-    Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/PsiPlusSigma
+    Mat1d deltaAll;
+    Mat1d delta; // GPzMatLab: Delta
+    Mat1d deltaSolved; // GPzMatLab: Delta/Sigma(o,o) or Delta/PsiPlusSigma
     Mat1d varianceObserved;
-    Mat2d covariance;
+    Mat2d covariance; // GPzMatLab: PsiPlusSigma
 
     const double log2 = log(2.0);
 
@@ -1460,25 +1463,28 @@ Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& input
     for (uint_t j = 0; j < m; ++j) {
         double value = log2*element.countMissing;
 
-        delta = input - parameters_.basisFunctionPositions.row(j).transpose(); // GPzMatLab: Delta(i,:)
+        if (element.countMissing == d) {
+            deltaAll = input - parameters_.basisFunctionPositions.row(j).transpose();
+            fetchVectorElements_(delta, deltaAll, element, 'o');
 
-        if (inputError.rows() == 0) {
-            deltaSolved = element.invCovariancesObserved[j]*delta;
-        } else {
-            fetchVectorElements_(varianceObserved, inputError, element, 'o');
+            if (inputError.rows() == 0) {
+                deltaSolved = element.invCovariancesObserved[j]*delta;
+            } else {
+                fetchVectorElements_(varianceObserved, inputError, element, 'o');
 
-            covariance = element.covariancesObserved[j]; // GPzMatLab: PsiPlusSigma
-            covariance.diagonal() += varianceObserved;
+                covariance = element.covariancesObserved[j];
+                covariance.diagonal() += varianceObserved;
 
-            svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
-            deltaSolved = svd.solve(delta);
-            double ldet = computeLogDeterminant(svd);
-            double ldetobs = element.covariancesObservedLogDeterminant[j];
+                svd.compute(covariance, Eigen::ComputeThinU | Eigen::ComputeThinV);
+                deltaSolved = svd.solve(delta);
+                double ldet = computeLogDeterminant(svd);
+                double ldetobs = element.covariancesObservedLogDeterminant[j];
 
-            value += ldet - ldetobs;
+                value += ldet - ldetobs;
+            }
+
+            value += (delta.array()*deltaSolved.array()).sum();
         }
-
-        value += (delta.array()*deltaSolved.array()).sum();
 
         funcs[j] = exp(-0.5*value);
     }
@@ -1513,10 +1519,14 @@ Mat1d GPz::evaluateBasisFunctionsDiag_(const Mat1d& input, const Mat1d& inputErr
             double value = log2*element.countMissing;
 
             if (d == 1) {
-                double delta = input[0] - parameters_.basisFunctionPositions(j,0);
-                double covariance = element.covariancesObserved[j](0,0) + inputError[0]; // GPzMatLab: PsiPlusSigma
-                value += square(delta)/covariance;
-                funcs[j] = exp(-0.5*value)/sqrt(1.0 + inputError[0]/element.covariancesObserved[j](0,0));
+                if (element.countMissing == 1) {
+                    funcs[j] = exp(-0.5*value);
+                } else {
+                    double delta = input[0] - parameters_.basisFunctionPositions(j,0);
+                    double covariance = element.covariancesObserved[j](0,0) + inputError[0]; // GPzMatLab: PsiPlusSigma
+                    value += square(delta)/covariance;
+                    funcs[j] = exp(-0.5*value)/sqrt(1.0 + inputError[0]/element.covariancesObserved[j](0,0));
+                }
             } else {
                 double det = 1.0;
                 for (uint_t k = 0; k < d; ++k) {
@@ -1592,10 +1602,14 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
                     double value = log2*element.countMissing;
 
                     if (d == 1) {
-                        double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
-                        double covariance = element.covariancesObserved[j](0,0) + inputError(i,0); // GPzMatLab: PsiPlusSigma
-                        value += square(delta)/covariance;
-                        funcs(i,j) = exp(-0.5*value)/sqrt(1.0 + inputError(i,0)/element.covariancesObserved[j](0,0));
+                        if (element.countMissing == 1) {
+                            funcs(i,j) = exp(-0.5*value);
+                        } else {
+                            double delta = input(i,0) - parameters_.basisFunctionPositions(j,0);
+                            double covariance = element.covariancesObserved[j](0,0) + inputError(i,0); // GPzMatLab: PsiPlusSigma
+                            value += square(delta)/covariance;
+                            funcs(i,j) = exp(-0.5*value)/sqrt(1.0 + inputError(i,0)/element.covariancesObserved[j](0,0));
+                        }
                     } else {
                         double det = 1.0;
                         for (uint_t k = 0; k < d; ++k) {
@@ -1892,12 +1906,18 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             Mat1d varianceObserved; // GPzMatLab: Psi(o,o,i) (only diagonal)
             Mat2d dgO, dgU;
             Mat2d covObsInvL;
+            Mat1d deltaAll;
+            Mat1d delta; // GPzMatLab: Delta
+            Mat1d deltaSolved; // GPzMatLab: Delta/Sigma(o,o) or Delta/iPSoo
+            Mat1d deltaSolvedCov;
 
             for (uint_t i = 0; i < n; ++i) {
                 const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-                Mat1d delta = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j); // GPzMatLab: Delta(i,:)
-                Mat1d deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
+                if (element.countMissing == d) continue;
+
+                deltaAll = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j);
+                fetchVectorElements_(delta, deltaAll, element, 'o');
 
                 if (inputErrorTrain_.rows() == 0) {
                     // Case with no input error
@@ -1914,7 +1934,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
                     chol.compute(covariance);
                     deltaSolved = chol.solve(delta);
 
-                    Mat1d deltaSolvedCov = element.covariancesObserved[j]*deltaSolved;
+                    deltaSolvedCov = element.covariancesObserved[j]*deltaSolved;
                     covObsInvL = chol.solve(element.covariancesObserved[j]);
                     derivInvCovariance = (-0.5*derivBasis(i,j))*(
                         element.covariancesObserved[j]
@@ -1944,7 +1964,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             for (uint_t i = 0; i < n; ++i) {
                 const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-                for (uint_t k = 0; k < d; ++k) {
+                for (uint_t k = 0, l = 0; k < d; ++k) {
                     if (!element.missing[k]) {
                         double delta = inputTrain_(i,k) - parameters_.basisFunctionPositions(j,k); // GPzMatLab: Delta(i,:)
                         double deltaSolved; // GPzMatLab: delta/Sigma(o,o) or delta/iPSoo
@@ -1967,8 +1987,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
 
                         // Derivative wrt to basis covariances
                         // =================================
-                        double dgOScalar = element.dgO[j](k,k)*derivInvCovarianceScalar;
-                        derivatives_.basisFunctionCovariances[j](k,k) += dgOScalar;
+                        double dgO = element.dgO[j](k,l)*derivInvCovarianceScalar;
+                        derivatives_.basisFunctionCovariances[j](k,k) += dgO;
+
+                        // NB: no contribution from gUO because it is just zero (no covariance)
+
+                        ++l;
                     }
                 }
             }
