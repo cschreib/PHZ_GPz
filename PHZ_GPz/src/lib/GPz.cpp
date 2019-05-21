@@ -2441,13 +2441,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
             Mat1d positionMissing; // GPzMatLab: P(i,~o)
             fetchVectorElements_(positionMissing, position, element, 'u');
 
-            Mat1d inputMissing = positionMissing;
-            if (diagonalCovariance && optimizations_.specializeForDiagCovariance) {
-                // Nothing to do, diagonal covariance
-            } else {
-                inputMissing += element.R[i].transpose()*DeltaObserved;
-            }
-
+            Mat1d inputMissing = positionMissing + element.R[i].transpose()*DeltaObserved;
             for (uint_t j = 0; j < d; ++j) {
                 if (element.missing[j]) {
                     int u = element.indexMissing[j];
