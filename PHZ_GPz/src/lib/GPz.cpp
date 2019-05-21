@@ -26,7 +26,6 @@
 #include <random>
 #include <iostream>
 #include <chrono>
-#include <Eigen/Eigenvalues>
 
 namespace PHZ_GPz {
 
