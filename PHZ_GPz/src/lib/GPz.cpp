@@ -27,7 +27,6 @@
 #include <iostream>
 #include <chrono>
 #include <Eigen/Eigenvalues>
-#include <gperftools/profiler.h>
 
 namespace PHZ_GPz {
 
