@@ -1,7 +1,7 @@
 /**
  * @file PHZ_GPz/LBFGS.h
  * @date 02/12/19
- * @author user
+ * @author cschreib
  *
  * @copyright (C) 2012-2020 Euclid Science Ground Segment
  *

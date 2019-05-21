@@ -1,7 +1,7 @@
 /**
  * @file PHZ_GPz/STLWrapper.h
  * @date 11/29/18
- * @author user
+ * @author cschreib
  *
  * @copyright (C) 2012-2020 Euclid Science Ground Segment
  *
