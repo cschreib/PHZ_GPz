@@ -2983,6 +2983,63 @@ void GPz::loadModel(const GPzModel& model) {
         throw std::runtime_error("wrong size for uncertaintyBasisLogRelevances");
     }
 
+    double epsilon = std::numeric_limits<double>::epsilon();
+
+    for (int i = 0; i < tmpNumFeature; ++i) {
+        if (!std::isfinite(model.featureMean[i])) {
+            throw std::runtime_error("feature mean has invalid value (not finite)");
+        }
+        if (!std::isfinite(model.featureSigma[i]) || model.featureSigma[i] < 0.0) {
+            throw std::runtime_error("feature sigma has invalid value (not finite or negative)");
+        }
+    }
+
+    if (!std::isfinite(model.outputMean)) {
+        throw std::runtime_error("output mean has invalid value (not finite)");
+    }
+
+    for (int i = 0; i < tmpNumBF; ++i) {
+        for (int j = 0; j < tmpNumBF; ++j) {
+            if (!std::isfinite(model.modelInvCovariance(i,j))) {
+                throw std::runtime_error("model inverse covariance has invalid value (not finite)");
+            }
+            if (std::abs(model.modelInvCovariance(i,j) - model.modelInvCovariance(j,i)) > epsilon) {
+                throw std::runtime_error("model inverse covariance is not symmetric");
+            }
+        }
+        if (!std::isfinite(model.modelInputPrior[i]) || model.modelInputPrior[i] < 0.0) {
+            throw std::runtime_error("model prior has invalid value (not finite or negative)");
+        }
+        for (int j = 0; j < tmpNumFeature; ++j) {
+            if (!std::isfinite(model.parameters.basisFunctionPositions(i,j))) {
+                throw std::runtime_error("basis function position has invalid value (not finite)");
+            }
+        }
+        if (!std::isfinite(model.parameters.basisFunctionLogRelevances[i])) {
+            throw std::runtime_error("BF log-relevance has invalid value (not finite)");
+        }
+        for (int j = 0; j < tmpNumFeature; ++j)
+        for (int k = 0; k < tmpNumFeature; ++k) {
+            auto& cov = model.parameters.basisFunctionCovariances[i];
+            if (!std::isfinite(cov(j,k))) {
+                throw std::runtime_error("BF covariance has invalid value (not finite)");
+            }
+            if (std::abs(cov(j,k) - cov(k,j)) > epsilon) {
+                throw std::runtime_error("BF covariance is not symmetric");
+            }
+        }
+        if (!std::isfinite(model.parameters.uncertaintyBasisWeights[i])) {
+            throw std::runtime_error("BF uncertainty weight has invalid value (not finite)");
+        }
+        if (!std::isfinite(model.parameters.uncertaintyBasisLogRelevances[i])) {
+            throw std::runtime_error("BF uncertainty log-relevance has invalid value (not finite)");
+        }
+    }
+
+    if (!std::isfinite(model.parameters.logUncertaintyConstant)) {
+        throw std::runtime_error("log uncertainty has invalid value (not finite)");
+    }
+
     setNumberOfBasisFunctions(tmpNumBF);
     setNumberOfFeatures(tmpNumFeature);
 
