@@ -23,6 +23,10 @@
 
 #include "PHZ_GPz/GPz.h"
 #include "PHZ_GPz/LBFGS.h"
+#ifndef NO_GSL
+#include "PHZ_GPz/GSLWrapper.h"
+#endif
+
 #include <random>
 #include <iostream>
 #include <chrono>
@@ -2895,9 +2899,15 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     options.gradientTolerance = optimizationGradientTolerance_;
     options.verbose = verbose_;
 
+    ProfilerStart("gpz.prof");
+
     Minimize::Result result;
     if (optimizerMethod_ == OptimizerMethod::GPZ_LBFGS) {
+        #ifdef NO_GSL
+        throw std::runtime_error("GSL minimizer is not available");
+        #else
         result = Minimize::minimizeLBFGS(options, initialValues, minFunc);
+        #endif
     } else {
         result = Minimize::minimizeBFGS(options, initialValues, minFunc);
     }

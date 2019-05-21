@@ -26,6 +26,7 @@
 
 #include "PHZ_GPz/STLWrapper.h"
 #include "PHZ_GPz/EigenWrapper.h"
+#include "PHZ_GPz/Minimize.h"
 
 #include <limits>
 #include <iostream>
@@ -33,29 +34,6 @@
 
 namespace PHZ_GPz {
 namespace Minimize {
-
-    struct Options {
-        double initialStep = 0.1;
-        double minimizerTolerance = 1e-3;
-        double gradientTolerance = 1e-3;
-        uint_t maxIterations = 1000;
-        bool   hasValidation = false;
-        uint_t maxValidationAttempts = 50;
-        bool   verbose = false;
-        bool   verboseSingleLine = false;
-    };
-
-    struct Result {
-        bool   success = false;
-        Vec1d  parameters;
-        Vec1d  parametersBestValid;
-        double metric = std::numeric_limits<double>::quiet_NaN();
-        uint_t numberIterations = 0;
-    };
-
-    enum class FunctionOutput {
-        METRIC_TRAIN, METRIC_VALID, DERIVATIVES_TRAIN, ALL_TRAIN
-    };
 
     template<typename F>
     Result minimizeBFGS(const Options& options, const Vec1d& initial, F&& function) {

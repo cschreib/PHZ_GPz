@@ -26,7 +26,7 @@
 
 #include "PHZ_GPz/STLWrapper.h"
 #include "PHZ_GPz/EigenWrapper.h"
-#include "PHZ_GPz/GSLWrapper.h"
+#include "PHZ_GPz/Minimize.h"
 #include <vector>
 
 namespace PHZ_GPz {
