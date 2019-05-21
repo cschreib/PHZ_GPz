@@ -494,6 +494,8 @@ class GPz {
     void normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i& missing,
         Vec1d& output, const Vec1d& weight);
 
+    void eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output) const;
+
     void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         const Vec1d& output, const Vec1d& weight);
 

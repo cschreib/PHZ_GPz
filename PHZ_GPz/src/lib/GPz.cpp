@@ -617,6 +617,59 @@ void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i&
     applyOutputNormalization_(input, missing, output);
 }
 
+void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output) const {
+    uint_t n = input.rows();
+    const uint_t d = numberFeatures_;
+    const bool noError = inputError.rows() == 0;
+
+    std::vector<uint_t> valid;
+    valid.reserve(n);
+
+    for (uint_t i = 0; i < n; ++i) {
+        bool good = false;
+
+        if (std::isfinite(output[i])) {
+            for (uint_t k = 0; k < d; ++k) {
+                if (std::isfinite(input(i,k)) && (noError || std::isfinite(inputError(i,k)))) {
+                    good = true;
+                    break;
+                }
+            }
+        }
+
+        if (good) {
+            valid.push_back(i);
+        }
+    }
+
+    if (valid.size() != n) {
+        if (verbose_) {
+            std::cout << "removing " << n - valid.size() << " invalid inputs" << std::endl;
+        }
+
+        Mat2d oldInput = std::move(input);
+        Mat2d oldError = std::move(inputError);
+        Mat1d oldOutput = std::move(output);
+
+        n = valid.size();
+
+        output.resize(n);
+        input.resize(n,d);
+        if (!noError) {
+            inputError.resize(n,d);
+        }
+
+        for (uint_t i = 0; i < n; ++i) {
+            uint_t o = valid[i];
+            output[i] = oldOutput[o];
+            input.row(i) = oldInput.row(o);
+            if (!noError) {
+                inputError.row(i) = oldError.row(o);
+            }
+        }
+    }
+}
+
 void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
     const Vec1d& output, const Vec1d& weight) {
 
@@ -753,6 +806,9 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 }
 
 void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
+    // Cleanup the sample
+    eraseInvalidTrainData_(input, inputError, output);
+
     // Compute weights and split training/valid
     Vec1d weight = computeWeights_(output);
     splitTrainValid_(input, inputError, output, weight);
