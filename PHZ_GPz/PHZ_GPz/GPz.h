@@ -381,6 +381,8 @@ class GPz {
         int                id = 0;
         uint_t             countMissing = 0;       // u, o = d - u
         std::vector<bool>  missing;                // [d]
+        std::vector<int>   indexMissing;           // [d]
+        std::vector<int>   indexObserved;          // [d]
 
         // For initialization
 
@@ -389,6 +391,7 @@ class GPz {
         // For training
 
         std::vector<Mat2d> covariancesObserved;    // [o,o], GPz MatLab: Sigma(o,o)
+        std::vector<Mat2d> covariancesMissing;     // [u,u], GPz MatLab: Sigma(u,u)
         std::vector<Mat2d> invCovariancesObserved; // [o,o], GPz MatLab: inv(Sigma(o,o))
         Vec1d              covariancesObservedLogDeterminant; // GPz MatLab: lnz
         std::vector<Mat2d> gUO;                    // [u,o], GPz MatLab: GuuGuo
@@ -399,6 +402,8 @@ class GPz {
         std::vector<Mat2d> Psi_hat;                // [u,u], GPz MatLab: Psi_hat
         std::vector<Mat2d> R;                      // [o,u], GPz MatLab: R
         std::vector<Mat2d> T;                      // [:,o], GPz MatLab: T
+        Mat2d              Nij;                    // [m,m], GPz MatLab: Nij
+        std::vector<std::vector<Mat1d>> Nu;        // [m,m,m], GPz MatLab: Nu
     };
 
     mutable std::vector<MissingCacheElement> missingCache_;
