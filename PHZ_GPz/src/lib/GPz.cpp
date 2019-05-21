@@ -3074,14 +3074,6 @@ GPzModel GPz::getModel() const {
     return model;
 }
 
-void GPz::readModelFromFile(const std::string& fileName) {
-    // TODO: implement
-}
-
-void GPz::writeModelToFile(const std::string& filename) const {
-    // TODO: implement
-}
-
 // ===================
 // Prediction function
 // ===================
