@@ -2122,8 +2122,6 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             for (uint_t i = 0; i < n; ++i) {
                 const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-                if (element.countMissing == d) continue;
-
                 deltaAll = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j);
                 fetchVectorElements_(delta, deltaAll, element, 'o');
 
