@@ -337,7 +337,7 @@ class GPz {
     OptimizerMethod            optimizerMethod_ = OptimizerMethod::GPZ_LBFGS;
     double                     balancedWeightingBinSize_ = 0.1;
     double                     trainValidRatio_ = 0.5;
-    uint_t                     optimizationMaxIterations_ = 200;
+    uint_t                     optimizationMaxIterations_ = 500;
     double                     optimizationTolerance_ = 1e-9;
     double                     optimizationGradientTolerance_ = 1e-5;
     bool                       verbose_ = false;
@@ -616,22 +616,22 @@ public:
     ~GPz() = default;
 
     /**
-     * @brief Copy constructor
+     * @brief Copy constructor (deleted)
      */
     GPz(const GPz&) = delete;
 
     /**
-     * @brief Move constructor
+     * @brief Move constructor (deleted)
      */
     GPz(GPz&&) = delete;
 
     /**
-     * @brief Copy assignment operator
+     * @brief Copy assignment operator (deleted)
      */
     GPz& operator=(const GPz&) = delete;
 
     /**
-     * @brief Move assignment operator
+     * @brief Move assignment operator (deleted)
      */
     GPz& operator=(GPz&&) = delete;
 
@@ -639,77 +639,374 @@ public:
     // Configuration getters/setters
     // =============================
 
+    /**
+     * @name Getters/setters to configure training
+     */
+    /**@{*/
+
+    /**
+     * @brief Set the number of basis functions in the sparse GP
+     *
+     * The basis functions are D-dimensional Gaussian (for D features) of variable width (or
+     * covariance) and amplitude, which are used to model the relation between the output values
+     * and the input values in the training data set. As the number of basis function increases,
+     * the model gains in richness and complexity; this increases the quality of the model at the
+     * expense of computation time. In principle there should be no degradation of quality if too
+     * many basis functions are used; GPz has automatic relevance determination (ARD) which will
+     * weight down the basis functions which are not needed for modeling the data.
+     *
+     * Default value: 100
+     */
     void setNumberOfBasisFunctions(uint_t num);
 
+    /**
+     * @brief Return the number of basis functions in the sparse GP
+     *
+     * See setNumberOfBasisFunctions().
+     */
     uint_t getNumberOfBasisFunctions() const;
 
+    /**
+     * @brief Set the functional form of the prior mean function
+     *
+     * See PriorMeanFunction.
+     *
+     * Default value: PriorMeanFunction::CONSTANT_PREPROCESS.
+     */
     void setPriorMeanFunction(PriorMeanFunction newFunction);
 
+    /**
+     * @brief Return the functional form of the prior mean function
+     *
+     * See setPriorMeanFunction().
+     */
     PriorMeanFunction getPriorMeanFunction() const;
 
+    /**
+     * @brief Return the number of features that the current model has been trained for
+     *
+     * If no model has been trained yet, will return zero.
+     */
     uint_t getNumberOfFeatures() const;
 
+    /**
+     * @brief Set the scheme used for weighting the training data
+     *
+     * See WeightingScheme.
+     *
+     * Default value: WeightingScheme::BALANCED.
+     */
     void setWeightingScheme(WeightingScheme scheme);
 
+    /**
+     * @brief Return the scheme used for weighting the training data
+     *
+     * See setWeightingScheme().
+     */
     WeightingScheme getWeightingScheme() const;
 
+    /**
+     * @brief Set the bin size for the balanced weighting scheme
+     *
+     * See WeightingScheme::BALANCED. In the "balanced" weighting scheme, a grid is created in
+     * output space and the number of elements of the training set falling in each grid cell is
+     * computed. The inverse of this number is then used as weighting for each element of the cell,
+     * which effectively down-weights the regions of the parameter space that are over-represented.
+     * This parameter controls the size of a grid cell, in the same units as used for the output
+     * values.
+     *
+     * Default value: 0.1.
+     */
     void setBalancedWeightingBinSize(double size);
 
+    /**
+     * @brief Return the bin size for the balanced weighting scheme
+     *
+     * See setBalancedWeightingBinSize().
+     */
     double getBalancedWeightingBinSize() const;
 
+    /**
+     * @brief Set the scheme used to pre-normalize the training data
+     *
+     * See NormalizationScheme.
+     *
+     * Default value: NormalizationScheme::WHITEN.
+     */
     void setNormalizationScheme(NormalizationScheme scheme);
 
+    /**
+     * @brief Return the scheme used to pre-normalize the training data
+     *
+     * See setNormalizationScheme().
+     */
     NormalizationScheme getNormalizationScheme() const;
 
+    /**
+     * @brief Set the method used to split training data into training and validation
+     *
+     * See TrainValidationSplitMethod, setTrainValidationRatio(), and setTrainValidationSplitSeed().
+     *
+     * Default value: TrainValidationSplitMethod::RANDOM.
+     */
     void setTrainValidationSplitMethod(TrainValidationSplitMethod method);
 
+    /**
+     * @brief Return the method used to split training data into training and validation
+     *
+     * See setTrainValidationSplitMethod().
+     */
     TrainValidationSplitMethod getTrainValidationSplitMethod() const;
 
+    /**
+     * @brief Set the fraction of training data to use for validation
+     *
+     * See TrainValidationSplitMethod and setTrainValidationSplitSeed().
+     *
+     * The training stage is performed by optimizing the likelihood of the model on the training
+     * data. To avoid over-fitting, some of that training data is kept aside and does not enter
+     * the training likelihood evaluation; this is the validation set. At each step of the
+     * optimization routine, the likelihood of the validation set is computed separately, and the
+     * optimization stops when this likelihood no longer improves.
+     *
+     * Default value: 0.5 (half).
+     */
     void setTrainValidationRatio(double ratio);
 
+    /**
+     * @brief Return the fraction of training data to use for validation
+     *
+     * See setTrainValidationRatio().
+     */
     double getTrainValidationRatio() const;
 
+    /**
+     * @brief Set the random seed to use for splitting the training data
+     *
+     * See TrainValidationSplitMethod and setTrainValidationRatio().
+     *
+     * If the training split method is set to TrainValidationSplitMethod::RANDOM, this value
+     * is used to initialize the random number generator that decides whether an element of the
+     * training set should be used for training or validation. If always initialized with the
+     * same seed, the random number generator will always make the same decision, which is
+     * desirable for reproducibility. Changing the seed even slightly will produce a completely
+     * different result.
+     *
+     * Default value: 42.
+     */
     void setTrainValidationSplitSeed(uint_t seed);
 
+    /**
+     * @brief Return the random seed to use for splitting the training data
+     *
+     * See setTrainValidationSplitSeed().
+     */
     uint_t getTrainValidationSplitSeed() const;
 
+    /**
+     * @brief Set the random seed to use for initializing the basis function positions
+     *
+     * This value is used to initialize the random number generator that decides where to place
+     * the basis functions in the initialization stage, before the optimization. If always
+     * initialized with the same seed, the random number generator will always make the same
+     * decision, which is desirable for reproducibility. Changing the seed even slightly will
+     * produce a completely different result.
+     *
+     * Default value: 55.
+     */
     void setInitialPositionSeed(uint_t seed);
 
+    /**
+     * @brief Return the random seed to use for initializing the basis function positions
+     *
+     * See setInitialPositionSeed().
+     */
     uint_t getInitialPositionSeed() const;
 
+    /**
+     * @brief Set the basis function covariance type
+     *
+     * See CovarianceType.
+     *
+     * Default value: CovarianceType::VARIABLE_COVARIANCE.
+     */
     void setCovarianceType(CovarianceType type);
 
+    /**
+     * @brief Return the basis function covariance type
+     *
+     * See setCovarianceType().
+     */
     CovarianceType getCovarianceType() const;
 
+    /**
+     * @brief Set the output uncertainty parametrization type
+     *
+     * See OutputUncertaintyType.
+     *
+     * Default value: OutputUncertaintyType::INPUT_DEPENDENT.
+     */
     void setOutputUncertaintyType(OutputUncertaintyType type);
 
+    /**
+     * @brief Return the output uncertainty parametrization type
+     *
+     * See setOutputUncertaintyType().
+     */
     OutputUncertaintyType getOutputUncertaintyType() const;
 
+    /**
+     * @brief Set the optimizer implementation to use for training
+     *
+     * See OptimizerMethod.
+     *
+     * Default value: OptimizerMethod::GPZ_LBFGS.
+     */
     void setOptimizerMethod(OptimizerMethod method);
 
+    /**
+     * @brief Return the optimizer implementation to use for training
+     *
+     * See setOptimizerMethod.
+     */
     OptimizerMethod getOptimizerMethod() const;
 
+    /**
+     * @brief Set the maximum number of iteration of the optimization routine
+     *
+     * See setOptimizationTolerance() and setOptimizationGradientTolerance().
+     *
+     * The training is done with an iterative gradient search algorithm (BFGS, or LBFGS).
+     * These optimization routines are designed to stop automatically when some convergence criteria
+     * are reached (for example, the likelihood did not vary significantly compared to the previous
+     * iteration, or the gradient is small enough). The number of iterations required for
+     * convergence varies significantly between different setups, with the number of features, the
+     * number of model parameters, but also the data itself. In most cases, decent solutions are
+     * found after one or two hundred iterations, and the remaining iterations are used for fine
+     * tuning (which may or may not be useful), until the convergence is reached formally.
+     *
+     * However, numerical instabilities can sometimes prevent the convergence criteria from ever
+     * being reached. For this reason the optimization routines also set a hard limit on the
+     * number of iterations, to avoid an infinite loop. If the optimization stops because the
+     * maximum number of iteration has been reached, it is worth taking a good look at the resulting
+     * model to make sure it is sensible.
+     *
+     * Default value: 500.
+     */
     void setOptimizationMaxIterations(uint_t maxIterations);
 
+    /**
+     * @brief Return the maximum number of iteration of the optimization routine
+     *
+     * See setOptimizationMaxIterations().
+     */
     uint_t getOptimizationMaxIterations() const;
 
+    /**
+     * @brief Set the optimization tolerance threshold use for convergence
+     *
+     * See setOptimizationMaxIterations() and setOptimizationGradientTolerance().
+     *
+     * The training is done with an iterative gradient search algorithm (BFGS, or LBFGS).
+     * These optimization routines are designed to stop automatically when some convergence criteria
+     * are reached (for example, the likelihood did not vary significantly compared to the previous
+     * iteration, or the gradient is small enough). This threshold is used for one of these criteria
+     * and its meaning depends on the adopted optimization method (see OptimizerMethod). Generally,
+     * the lower the value, the more accurate the training will be, at the expense of increasing the
+     * number of iteration required for convergence. However, a too low value may bring the
+     * convergence criterion too close to numerical noise, which can make it difficult or impossible
+     * to reach.
+     *
+     * For OptimizerMethod::GPZ_LBFGS (the default), this value is compared against the maximum
+     * parameter step size in an iteration, and on the absolute value of the likelihood difference.
+     * Convergence is reached if either is below this threshold. The recommended value is 1e-9.
+     *
+     * For OptimizerMethod::GSL_BFGS, the meaning of this value is undocumented, but a recommended
+     * value is 0.1.
+     *
+     * Default value: 1e-9.
+     */
     void setOptimizationTolerance(double tolerance);
 
+    /**
+     * @brief Return the optimization tolerance threshold use for convergence
+     *
+     * See setOptimizationTolerance().
+     */
     double getOptimizationTolerance() const;
 
+    /**
+     * @brief Set the optimization tolerance threshold use for convergence
+     *
+     * See setOptimizationMaxIterations() and setOptimizationTolerance().
+     *
+     * The training is done with an iterative gradient search algorithm (BFGS, or LBFGS).
+     * These optimization routines are designed to stop automatically when some convergence criteria
+     * are reached (for example, the likelihood did not vary significantly compared to the previous
+     * iteration, or the gradient is small enough). This threshold is used for one of these criteria
+     * and its meaning depends on the adopted optimization method (see OptimizerMethod). Generally,
+     * the lower the value, the more accurate the training will be, at the expense of increasing the
+     * number of iteration required for convergence. However, a too low value may bring the
+     * convergence criterion too close to numerical noise, which can make it difficult or impossible
+     * to reach.
+     *
+     * For OptimizerMethod::GPZ_LBFGS (the default), this value is compared against the absolute
+     * value of the gradient at each iteration. Convergence is reached if no parameter has its
+     * gradient larger than this threshold. The recommended value is 1e-5.
+     *
+     * For OptimizerMethod::GSL_BFGS, this value is compared against the norm of the gradient at
+     * each iteration. Convergence is reached if the norm is lower than this threshold. The
+     * documentation does not provide a recommended value, but 1e-5 provides acceptable results.
+     *
+     * Default value: 1e-5.
+     */
     void setOptimizationGradientTolerance(double tolerance);
 
+    /**
+     * @brief Return the optimization tolerance threshold use for convergence
+     *
+     * See setOptimizationGradientTolerance().
+     */
     double getOptimizationGradientTolerance() const;
 
+    /**
+     * @brief Enable/disable printing the progress of the work to the standard output
+     *
+     * Default value: false (no output).
+     */
     void setVerboseMode(bool verbose);
 
+    /**
+     * @brief Check if printing the progress of the work to the standard output
+     *
+     * See setVerboseMode().
+     */
     bool getVerboseMode() const;
 
+    /**
+     * @brief Set optimization to use when evaluating the model and its derivatives
+     *
+     * See GPzOptimizations.
+     *
+     * Default value: all optimizations enabled.
+     */
     void setOptimizationFlags(GPzOptimizations optimizations);
 
+    /**
+     * @brief Return the optimization to use when evaluating the model and its derivatives
+     *
+     * See setOptimizationFlags().
+     */
     GPzOptimizations getOptimizationFlags() const;
 
+    /**
+     * @brief Enable/disable execution time profiling in training (for debug only)
+     *
+     * Default value: false (disabled).
+     */
     void setProfileTraining(bool profile);
+
+    /**@}*/
 
     // =====================
     // Fit/training function
