@@ -2107,6 +2107,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
 
         // Generic code for any number of feature and any covariance type
         auto derivativeAddContribution = [&](uint_t j) {
+            Eigen::LDLT<Mat2d> chol;
             Mat2d derivInvCovariance; // GPzMatLab: diSoo
             Mat2d covariance, derivCovariance;
             Mat1d variance; // GPzMatLab: Psi(:,:,i) (only diagonal)
