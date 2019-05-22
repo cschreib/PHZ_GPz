@@ -3047,7 +3047,7 @@ void GPz::loadModel(const GPzModel& model) {
         throw std::runtime_error("wrong size for uncertaintyBasisLogRelevances");
     }
 
-    double epsilon = std::numeric_limits<double>::epsilon();
+    double epsilon = 1e-9;
 
     for (int i = 0; i < tmpNumFeature; ++i) {
         if (!std::isfinite(model.featureMean[i])) {
