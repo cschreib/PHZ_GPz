@@ -3113,8 +3113,16 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     // Project input from real space to training space
     applyInputNormalization_(input, inputError);
 
+    if (verbose_) {
+        std::cout << "starting prediction" << std::endl;
+    }
+
     // Make prediction
     GPzOutput result = predict_(input, inputError, missing);
+
+    if (verbose_) {
+        std::cout << "renormalize output values" << std::endl;
+    }
 
     // De-project output from training space to real space
     restoreOutputNormalization_(input, missing, result);
