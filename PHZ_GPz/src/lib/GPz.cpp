@@ -29,7 +29,10 @@
 
 #include <random>
 #include <iostream>
+#include <fstream>
 #include <chrono>
+
+#include <gperftools/profiler.h>
 
 namespace PHZ_GPz {
 
@@ -884,6 +887,23 @@ void GPz::initializeBasisFunctions_() {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
+    // std::ifstream in("init_p_ml.txt");
+    // parameters_.basisFunctionPositions.resize(m,d);
+    // char comma;
+    // for (uint_t i = 0; i < m; ++i)
+    // for (uint_t j = 0; j < d; ++j) {
+    //     if (!(in >> parameters_.basisFunctionPositions(i,j))) {
+    //         std::cerr << "could not read position for " << i << "," << j << std::endl;
+    //     }
+
+    //     if (j != d-1) {
+    //         in >> comma;
+    //         if (comma != ',') {
+    //             std::cerr << "unexpected character '" << comma << "'" << std::endl;
+    //         }
+    //     }
+    // }
+
     std::mt19937 seed(seedPositions_);
     // Uniform distribution between -sqrt(3) and sqrt(3) has mean of zero and standard deviation of unity
     std::uniform_real_distribution<double> uniform(-sqrt(3.0), sqrt(3.0));
@@ -904,6 +924,13 @@ void GPz::initializeBasisFunctions_() {
 
     if (verbose_) {
         std::cout << "initialized BF positions" << std::endl;
+        // for (uint_t i = 0; i < m; ++i) {
+        //     std::cout << "  ";
+        //     for (uint_t j = 0; j < d; ++j) {
+        //         std::cout << parameters_.basisFunctionPositions(i,j) << ",";
+        //     }
+        //     std::cout << std::endl;
+        // }
     }
 }
 
@@ -914,6 +941,7 @@ void GPz::initializeBasisFunctionRelevances_() {
 
     if (verbose_) {
         std::cout << "initialized BF relevances" << std::endl;
+        // std::cout << "  " << -outputLogVariance << std::endl;
     }
 }
 
@@ -1335,6 +1363,11 @@ void GPz::initializeCovariances_() {
 
     if (verbose_) {
         std::cout << "initialized BF covariances" << std::endl;
+        // std::cout << "  ";
+        // for (uint_t i = 0; i < m; ++i) {
+        //     std::cout << gamma[i] << ",";
+        // }
+        // std::cout << std::endl;
     }
 }
 
@@ -1352,6 +1385,7 @@ void GPz::initializeErrors_() {
 
     if (verbose_) {
         std::cout << "initialized output errors" << std::endl;
+        // std::cout << "  " << outputLogVariance << std::endl;
     }
 }
 
@@ -3102,6 +3136,7 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
         if (inputError.rows() != 0) {
             std::cout << "found uncertainties for the features" << std::endl;
         }
+        std::cout << "precomputing cache and applying normalization" << std::endl;
     }
 
     // Detect missing data

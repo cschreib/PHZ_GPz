@@ -110,6 +110,8 @@ else()
     include_directories(${EIGEN3_INCLUDE_DIRS})
     if (NOT NO_GSL)
         include_directories(${GSL_INCLUDE_DIRS})
+    else()
+        add_definitions(-DNO_GSL)
     endif()
 
     add_library(GPz SHARED src/lib/GPz.cpp)
