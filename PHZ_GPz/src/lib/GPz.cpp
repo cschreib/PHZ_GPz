@@ -704,7 +704,9 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         }
 
         uint_t numberTrain = round(input.rows()*trainValidRatio_);
-        assert(numberTrain != 0 && "cannot have zero training data points");
+        if (numberTrain == 0) {
+            throw std::runtime_error("cannot have zero training data points");
+        }
 
         uint_t numberValid = input.rows() - numberTrain;
 
@@ -807,6 +809,12 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
         }
     }
 
+    for (uint_t i = 0; i < output.rows(); ++i) {
+        if (!std::isfinite(weight[i])) {
+            throw std::runtime_error("invalid weight found for output value");
+        }
+    }
+
     return weight;
 }
 
@@ -872,7 +880,9 @@ void GPz::computeTrainingPCA_() {
 
     // Compute eigen-values and eigen-vectors
     Eigen::EigenSolver<Mat2d> solver(featurePCASigma_);
-    assert(solver.info() == Eigen::Success && "could not get eigenvectors of PCA sigma matrix");
+    if (solver.info() != Eigen::Success) {
+        throw std::runtime_error("could not get eigenvectors of PCA sigma matrix");
+    }
 
     Mat1d eigenValues = solver.eigenvalues().real();
     Mat2d eigenVectors = solver.eigenvectors().real();
@@ -2282,7 +2292,9 @@ void GPz::computeInputPriors_() {
         }
     }
 
-    assert(modelInputPrior_.sum() > 0.0 && "prior is zero");
+    if (modelInputPrior_.sum() <= 0.0) {
+        throw std::runtime_error("prior is zero");
+    }
 }
 
 // ==============================
@@ -2703,8 +2715,10 @@ uint_t GPz::getNumberOfBasisFunctions() const {
 
 void GPz::setPriorMeanFunction(PriorMeanFunction newFunction) {
     if (newFunction != priorMean_) {
-        assert(newFunction != PriorMeanFunction::LINEAR_MARGINALIZE && "not implemented");
-        assert(newFunction != PriorMeanFunction::LINEAR_PREPROCESS  && "not implemented");
+        if (newFunction == PriorMeanFunction::LINEAR_MARGINALIZE ||
+            newFunction != PriorMeanFunction::LINEAR_PREPROCESS) {
+            throw std::runtime_error("not implemented");
+        }
 
         priorMean_ = newFunction;
         reset_();
@@ -2860,7 +2874,9 @@ void GPz::setProfileTraining(bool profile) {
 
 void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     // Check inputs are consistent
-    assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
+    if (!checkErrorDimensions_(input, inputError)) {
+        throw std::runtime_error("input uncertainty has incorrect dimension");
+    }
 
     auto start = std::chrono::steady_clock::now();
 
@@ -2944,7 +2960,9 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
         #endif
     }
 
-    assert(result.success && "minimization failed");
+    if (!result.success) {
+        throw std::runtime_error("minimization failed");
+    }
 
     if (inputValid_.rows() == 0) {
         // No validation set, use the latest best model
@@ -3122,11 +3140,17 @@ GPzModel GPz::getModel() const {
 
 GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     // Check input is consistent
-    assert(checkInputDimensions_(input) && "input has incorrect dimension");
-    assert(checkErrorDimensions_(input, inputError) && "input uncertainty has incorrect dimension");
+    if (!checkInputDimensions_(input)) {
+        throw std::runtime_error("input has incorrect dimension");
+    }
+    if (!checkErrorDimensions_(input, inputError)) {
+        throw std::runtime_error("input uncertainty has incorrect dimension");
+    }
 
     // Check that we have a usable set of parameters to make predictions
-    assert(parameters_.basisFunctionPositions.rows() != 0 && "model is not initialized");
+    if (parameters_.basisFunctionPositions.rows() > 0) {
+        throw std::runtime_error("model is not initialized");
+    }
 
     auto start = std::chrono::steady_clock::now();
 
