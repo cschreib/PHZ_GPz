@@ -36,13 +36,12 @@ Things to figure out
      * ~~Single catalog, or streamed chunks?~~ (delegated to Primal framework)
      * ~~FITS or ASCII?~~ (delegated to Primal framework)
      * Fluxes of mags?
-     * Are we given individual uncertainties + global calibration uncertainties? (not very important at this stage)
      * Anything else?
    * ~~How training is handled in pipeline?~~ (delegated to Primal framework)
-     * ~~Will training will be done in separate call to the program, to be reused?~~ (yes and no, program to be wrapped as Phython class, training and predictions are different function calls)
-     * Do we need to provide interface to save/load the model without re-training?
+     * ~~Will training will be done in separate call to the program, to be reused?~~ (yes and no, program to be wrapped as Python class, training and predictions are different function calls)
+     * ~~Do we need to provide interface to save/load the model without re-training?~~ (done)
      * ~~Do we decide how training data is used? Split sample in RA/Dec, ... etc.~~ (delegated to Primal framework)
-   * What format for output?
+   * ~~What format for output?~~
      * ~~FITS or ASCII?~~ (delegated to Primal framework)
      * ~~Produce full p(z)?~~ (yes)
      * ~~How?~~ (delegated to Primal framework)
