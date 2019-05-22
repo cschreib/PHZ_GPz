@@ -450,6 +450,8 @@ namespace Minimize {
         // Minimization loop
         // -----------------
 
+        std::string convergence_criterion;
+
         for (result.numberIterations = 1;
             result.numberIterations < options.maxIterations && options.maxIterations != 0;
             ++result.numberIterations) {
@@ -529,6 +531,7 @@ namespace Minimize {
 
             if (-gdt < options.minimizerTolerance) {
                 // Directional derivative below threshold
+                convergence_criterion = "directional derivative below threshold";
                 result.success = true;
                 break;
             }
@@ -555,6 +558,7 @@ namespace Minimize {
             optimalConditions = gradient.abs().maxCoeff();
             if (optimalConditions < options.gradientTolerance) {
                 // Gradient below threshold
+                convergence_criterion = "gradient below threshold";
                 result.success = true;
                 break;
             }
@@ -562,6 +566,7 @@ namespace Minimize {
             optimalConditions = (gradientStep*direction).abs().maxCoeff();
             if (optimalConditions < options.minimizerTolerance) {
                 // Step size below threshold
+                convergence_criterion = "step size below threshold";
                 result.success = true;
                 break;
             }
@@ -569,6 +574,7 @@ namespace Minimize {
             optimalConditions = std::abs(metric - oldMetric);
             if (optimalConditions < options.minimizerTolerance) {
                 // Metric change below threshold
+                convergence_criterion = "metric delta below threshold";
                 result.success = true;
                 break;
             }
@@ -585,6 +591,7 @@ namespace Minimize {
 
                 if (noValidationImprovementAttempts == options.maxValidationAttempts) {
                     // Validation metric is not improving
+                    convergence_criterion = "no improvement in validation metric";
                     result.success = true;
                     break;
                 }
@@ -614,6 +621,11 @@ namespace Minimize {
                     << " (best: " << bestValid << ")";
             }
             std::cout << std::endl;
+            if (result.success) {
+                std::cout << "fit converged (" << convergence_criterion << ")" << std::endl;
+            } else {
+                std::cout << "fit failed to converge (maximum number of iterations reached)" << std::endl;
+            }
         }
 
         // Write output
