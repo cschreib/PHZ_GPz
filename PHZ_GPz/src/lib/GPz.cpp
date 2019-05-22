@@ -2153,7 +2153,12 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
 
                 // Derivative wrt to basis positions
                 // =================================
-                derivatives_.basisFunctionPositions.row(j) += derivBasis(i,j)*deltaSolved.transpose();
+                for (uint_t k = 0; k < d; ++k) {
+                    if (!element.missing[k]) {
+                        uint_t o = element.indexObserved[k];
+                        derivatives_.basisFunctionPositions(j,k) += derivBasis(i,j)*deltaSolved[o];
+                    }
+                }
 
                 // Derivative wrt to basis covariances
                 // =================================
