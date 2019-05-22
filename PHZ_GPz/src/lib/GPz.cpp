@@ -2901,13 +2901,13 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
 
     Minimize::Result result;
     if (optimizerMethod_ == OptimizerMethod::GPZ_LBFGS) {
+        result = Minimize::minimizeLBFGS(options, initialValues, minFunc);
+    } else {
         #ifdef NO_GSL
         throw std::runtime_error("GSL minimizer is not available");
         #else
-        result = Minimize::minimizeLBFGS(options, initialValues, minFunc);
-        #endif
-    } else {
         result = Minimize::minimizeBFGS(options, initialValues, minFunc);
+        #endif
     }
 
     assert(result.success && "minimization failed");
