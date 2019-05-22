@@ -29,7 +29,7 @@
 
 #include <random>
 #include <iostream>
-#include <fstream>
+#include <iomanip>
 #include <chrono>
 
 #include <gperftools/profiler.h>
@@ -2694,6 +2694,38 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
     };
 
     parallel_for pool(optimizations_.enableMultithreading ? optimizations_.maxThreads : 0);
+
+    if (verbose_) {
+        double timeStart = now();
+        pool.callback = [&,timeStart](uint_t iter) {
+            double timeSpent = now() - timeStart;
+            double timeLeft = timeSpent/float(iter)*(n - iter);
+
+            uint_t defaultWidth = std::cout.width();
+            std::cout << "predicted " << std::setw(log10(n)+2) << iter << std::setw(defaultWidth);
+            std::cout << "/" << n << " (" << floor(iter/float(n)*100) << "%), "
+                << "time remaining: ";
+
+            if (!std::isfinite(timeLeft)) {
+                std::cout << "unknown";
+            } else {
+                uint_t numHours = floor(timeLeft/3600.0);
+                if (numHours > 0) {
+                    std::cout << numHours << "h";
+                    timeLeft -= numHours*3600.0;
+                }
+                uint_t numMinutes = floor(timeLeft/60.0);
+                if (numMinutes > 0) {
+                    std::cout << numMinutes << "m";
+                    timeLeft -= numMinutes*60.0;
+                }
+                std::cout << floor(timeLeft*100)/100 << "s";
+            }
+
+            std::cout << std::endl;
+        };
+    }
+
     pool.execute(doPrediction, n);
 
     result.variance = result.varianceTrainDensity + result.varianceTrainNoise

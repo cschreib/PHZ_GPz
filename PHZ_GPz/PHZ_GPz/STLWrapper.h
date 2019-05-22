@@ -31,7 +31,9 @@
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <atomic>
 #include <cassert>
+#include <functional>
 
 namespace PHZ_GPz {
 
@@ -70,6 +72,8 @@ namespace PHZ_GPz {
 
     struct parallel_for {
         uint_t chunk_size = 0;
+        std::function<void(uint_t)> callback;
+        double update_rate = 1.0;
 
     private :
 
@@ -90,6 +94,9 @@ namespace PHZ_GPz {
                     while (pfor.query_chunk(i0, i1)) {
                         for (uint_t i = i0; i < i1; ++i) {
                             f(i);
+                            if (pfor.callback) {
+                                ++pfor.iter;
+                            }
                         }
                     }
                 }));
@@ -106,6 +113,7 @@ namespace PHZ_GPz {
 
         // Internal
         std::mutex query_mutex;
+        std::atomic<uint_t> iter;
         uint_t n, i0, i1, di;
 
         bool query_chunk(uint_t& oi0, uint_t& oi1) {
@@ -147,8 +155,17 @@ namespace PHZ_GPz {
 
             if (workers.empty()) {
                 // Single-threaded execution
+                double prev = now();
+                callback(ifirst);
+
                 for (uint_t i = ifirst; i < ilast; ++i) {
                     f(i);
+
+                    double next = now();
+                    if (next - prev > update_rate) {
+                        prev = next;
+                        callback(i);
+                    }
                 }
             } else {
                 // Multi-threaded execution
@@ -159,10 +176,22 @@ namespace PHZ_GPz {
                 di = n/nchunk + 1;
                 i0 = ifirst;
                 i1 = ifirst + di;
+                iter = 0;
 
                 // Launch threads
                 for (auto& t : workers) {
                     t.start(f);
+                }
+
+                if (callback) {
+                    while (iter < n) {
+                        callback(iter.load() + ifirst);
+
+                        std::this_thread::sleep_for(
+                            std::chrono::microseconds(uint_t(update_rate*1e6))
+                        );
+                    }
+
                 }
 
                 // Join all
