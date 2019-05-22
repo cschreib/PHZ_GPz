@@ -474,6 +474,8 @@ class GPz {
     // Internal functions: initialization
     // ==================================
 
+    void setNumberOfFeatures_(uint_t num);
+
     void updateNumberParameters_();
 
     void resizeArrays_();
@@ -644,8 +646,6 @@ public:
     void setPriorMeanFunction(PriorMeanFunction newFunction);
 
     PriorMeanFunction getPriorMeanFunction() const;
-
-    void setNumberOfFeatures(uint_t num);
 
     uint_t getNumberOfFeatures() const;
 

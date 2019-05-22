@@ -2681,7 +2681,7 @@ PriorMeanFunction GPz::getPriorMeanFunction() const {
     return priorMean_;
 }
 
-void GPz::setNumberOfFeatures(uint_t num) {
+void GPz::setNumberOfFeatures_(uint_t num) {
     if (num != numberFeatures_) {
         if (verbose_) {
             std::cout << "setting number of features to " << num << std::endl;
@@ -2839,7 +2839,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     }
 
     // Normalize the inputs
-    setNumberOfFeatures(input.cols());
+    setNumberOfFeatures_(input.cols());
     initializeInputs_(std::move(input), std::move(inputError), std::move(output));
 
     // Setup the fit, initialize arrays, etc.
@@ -3049,7 +3049,7 @@ void GPz::loadModel(const GPzModel& model) {
     }
 
     setNumberOfBasisFunctions(tmpNumBF);
-    setNumberOfFeatures(tmpNumFeature);
+    setNumberOfFeatures_(tmpNumFeature);
 
     setPriorMeanFunction(model.priorMean);
     setOutputUncertaintyType(model.outputUncertaintyType);
