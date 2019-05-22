@@ -2899,8 +2899,6 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
     options.gradientTolerance = optimizationGradientTolerance_;
     options.verbose = verbose_;
 
-    ProfilerStart("gpz.prof");
-
     Minimize::Result result;
     if (optimizerMethod_ == OptimizerMethod::GPZ_LBFGS) {
         #ifdef NO_GSL
