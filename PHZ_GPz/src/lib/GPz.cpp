@@ -3152,7 +3152,7 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     }
 
     // Check that we have a usable set of parameters to make predictions
-    if (parameters_.basisFunctionPositions.rows() > 0) {
+    if (parameters_.basisFunctionPositions.rows() == 0) {
         throw std::runtime_error("model is not initialized");
     }
 
