@@ -827,7 +827,7 @@ void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
     splitTrainValid_(input, inputError, output, weight);
 
     // Setup missing cache
-    buildMissingCache_(inputTrain_);
+    buildMissingCache_(input);
     missingTrain_ = getBestMissingID_(inputTrain_);
     missingValid_ = getBestMissingID_(inputValid_);
 
