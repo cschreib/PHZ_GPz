@@ -1666,7 +1666,7 @@ Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& input
     for (uint_t j = 0; j < m; ++j) {
         double value = log2*element.countMissing;
 
-        if (element.countMissing == d) {
+        if (element.countMissing < d) {
             deltaAll = input - parameters_.basisFunctionPositions.row(j).transpose();
             fetchVectorElements_(delta, deltaAll, element, 'o');
 
