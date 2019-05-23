@@ -2710,9 +2710,19 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 
     if (optimizations_.enableMultithreading) {
         if (n/float(optimizations_.maxThreads) > 100) {
-            pool.chunk_size = 500; // query sources by chunks
+            pool.chunk_size = 100; // query sources by small chunks
+            if (covarianceType_ == CovarianceType::VARIABLE_COVARIANCE && predictVariance_) {
+                pool.chunk_size = 10; // decrease chunk size, calculations can take a while
+            }
+            if (verbose_) {
+                std::cout << "will use parallel prediction with chunks of " << pool.chunk_size
+                    << " elements" << std::endl;
+            }
         } else {
             pool.chunk_size = 0; // split sample evently between all threads
+            if (verbose_) {
+                std::cout << "will use parallel prediction with even split" << std::endl;
+            }
         }
     }
 
