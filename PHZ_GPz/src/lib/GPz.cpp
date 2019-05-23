@@ -32,8 +32,6 @@
 #include <iomanip>
 #include <chrono>
 
-#include <gperftools/profiler.h>
-
 namespace PHZ_GPz {
 
 // ====================================
