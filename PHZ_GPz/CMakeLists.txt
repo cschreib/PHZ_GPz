@@ -23,8 +23,17 @@ endif()
 # Examples:
 #          find_package(CppUnit)
 #===============================================================================
+if (BYPASS_ELEMENTS)
+    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake")
+endif()
+
 find_package(Eigen3 REQUIRED)
-find_package(Boost)
+
+message(STATUS ${EIGEN3_INCLUDE_DIRS})
+
+if (NOT BYPASS_ELEMENTS)
+    find_package(Boost)
+endif()
 
 if (NOT NO_GSL)
     find_package(GSL)
