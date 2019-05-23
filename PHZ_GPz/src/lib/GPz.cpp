@@ -2708,6 +2708,14 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 
     parallel_for pool(optimizations_.enableMultithreading ? optimizations_.maxThreads : 0);
 
+    if (optimizations_.enableMultithreading) {
+        if (n/float(optimizations_.maxThreads) > 100) {
+            pool.chunk_size = 500; // query sources by chunks
+        } else {
+            pool.chunk_size = 0; // split sample evently between all threads
+        }
+    }
+
     if (verbose_) {
         double timeStart = now();
         pool.callback = [&,timeStart](uint_t iter) {
