@@ -2313,8 +2313,14 @@ void GPz::predictFull_(const Mat1d& input, const MissingCacheElement& element, d
     Mat1d basis = evaluateBasisFunctions_(input, Mat1d{}, element);
 
     value = basis.transpose()*modelWeights_; // GPzMatLab: mu
-    varianceTrainDensity = basis.transpose()*modelInvCovariance_*basis; // GPzMatLab: nu
-    varianceTrainNoise = exp(evaluateOutputLogError_(basis)); // GPzMatLab: beta_i
+
+    if (predictVariance_) {
+        varianceTrainDensity = basis.transpose()*modelInvCovariance_*basis; // GPzMatLab: nu
+        varianceTrainNoise = exp(evaluateOutputLogError_(basis)); // GPzMatLab: beta_i
+    } else {
+        varianceTrainDensity = 0.0;
+        varianceTrainNoise = 0.0;
+    }
 }
 
 void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
@@ -2335,82 +2341,85 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
 
     varianceTrainDensity = 0.0; // GPzMatLab: nu
     varianceInputNoise = 0.0; // GPzMatLab: gamma
-    double VlnS = 0.0;
 
-    if ((d == 1 && optimizations_.specializeForSingleFeature) ||
-        (diagonalCovariance && optimizations_.specializeForDiagCovariance)) {
-        // Specialized version for one feature or diagonal covariances (faster)
+    if (predictVariance_) {
+        double VlnS = 0.0;
 
-        for (uint_t i = 0; i < m; ++i)
-        for (uint_t j = 0; j <= i; ++j) {
-            double lnNxc = 0.0;
-            double det = 1.0;
-            for (uint_t k = 0; k < d; ++k) {
-                double icovi = element.invCovariancesObserved[i](k,k);
-                double icovj = element.invCovariancesObserved[j](k,k);
-                double posi = parameters_.basisFunctionPositions(i,k);
-                double posj = parameters_.basisFunctionPositions(j,k);
+        if ((d == 1 && optimizations_.specializeForSingleFeature) ||
+            (diagonalCovariance && optimizations_.specializeForDiagCovariance)) {
+            // Specialized version for one feature or diagonal covariances (faster)
 
-                double Cij = 1.0/(icovi + icovj);
-                double cij = Cij*(posi*icovi + posj*icovj);
+            for (uint_t i = 0; i < m; ++i)
+            for (uint_t j = 0; j <= i; ++j) {
+                double lnNxc = 0.0;
+                double det = 1.0;
+                for (uint_t k = 0; k < d; ++k) {
+                    double icovi = element.invCovariancesObserved[i](k,k);
+                    double icovj = element.invCovariancesObserved[j](k,k);
+                    double posi = parameters_.basisFunctionPositions(i,k);
+                    double posj = parameters_.basisFunctionPositions(j,k);
 
-                double Delta = input[k] - cij;
+                    double Cij = 1.0/(icovi + icovj);
+                    double cij = Cij*(posi*icovi + posj*icovj);
 
-                Cij += inputError[k];
-                lnNxc += square(Delta)/Cij;
-                det *= Cij;
+                    double Delta = input[k] - cij;
+
+                    Cij += inputError[k];
+                    lnNxc += square(Delta)/Cij;
+                    det *= Cij;
+                }
+
+                double ZijNxc = exp(lnZ(i,j) - 0.5*lnNxc)/sqrt(det);
+
+                double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
+                varianceTrainDensity += coef*modelInvCovariance_(i,j);
+                varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+                VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
             }
+        } else {
+            // Generic version for any number of features and any covariance type
+            Eigen::JacobiSVD<Mat2d> svd;
+            Mat2d iCij;
+            Mat2d Cij;
+            Mat1d cij;
+            Mat1d Delta;
+            Mat1d DeltaSolved;
 
-            double ZijNxc = exp(lnZ(i,j) - 0.5*lnNxc)/sqrt(det);
+            for (uint_t i = 0; i < m; ++i)
+            for (uint_t j = 0; j <= i; ++j) {
+                iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
 
-            double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
-            varianceTrainDensity += coef*modelInvCovariance_(i,j);
-            varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
-            VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+                svd.compute(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+                Cij = computeInverseSymmetric(iCij, svd);
+                cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
+                    + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
+
+                cij = svd.solve(cij);
+
+                // Now this is source-specific
+
+                Delta = input - cij;
+                Cij.diagonal() += inputError;
+                svd.compute(Cij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+                DeltaSolved = svd.solve(Delta);
+                double lnNxc = DeltaSolved.transpose()*Delta + computeLogDeterminant(svd);
+                double ZijNxc = exp(lnZ(i,j) - 0.5*lnNxc);
+
+                double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
+                varianceTrainDensity += coef*modelInvCovariance_(i,j);
+                varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+                VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
+            }
         }
-    } else {
-        // Generic version for any number of features and any covariance type
-        Eigen::JacobiSVD<Mat2d> svd;
-        Mat2d iCij;
-        Mat2d Cij;
-        Mat1d cij;
-        Mat1d Delta;
-        Mat1d DeltaSolved;
 
-        for (uint_t i = 0; i < m; ++i)
-        for (uint_t j = 0; j <= i; ++j) {
-            iCij = element.invCovariancesObserved[i] + element.invCovariancesObserved[j];
+        varianceInputNoise -= value*value;
 
-            svd.compute(iCij, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-            Cij = computeInverseSymmetric(iCij, svd);
-            cij = parameters_.basisFunctionPositions.row(i)*element.invCovariancesObserved[i]
-                + parameters_.basisFunctionPositions.row(j)*element.invCovariancesObserved[j];
-
-            cij = svd.solve(cij);
-
-            // Now this is source-specific
-
-            Delta = input - cij;
-            Cij.diagonal() += inputError;
-            svd.compute(Cij, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-            DeltaSolved = svd.solve(Delta);
-            double lnNxc = DeltaSolved.transpose()*Delta + computeLogDeterminant(svd);
-            double ZijNxc = exp(lnZ(i,j) - 0.5*lnNxc);
-
-            double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
-            varianceTrainDensity += coef*modelInvCovariance_(i,j);
-            varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
-            VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
-        }
+        double logError = evaluateOutputLogError_(basis);
+        VlnS -= square(logError - parameters_.logUncertaintyConstant);
+        varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
     }
-
-    varianceInputNoise -= value*value;
-
-    double logError = evaluateOutputLogError_(basis);
-    VlnS -= square(logError - parameters_.logUncertaintyConstant);
-    varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
 }
 
 void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element, double& value,
@@ -2524,43 +2533,45 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
             basis[i] = No[i]*value;
         }
 
-        for (uint_t i = 0; i < m; ++i)
-        for (uint_t j = 0; j <= i; ++j) {
-            double EcCij = 0.0;
-            for (uint_t l = 0; l < m; ++l) {
-                EcCij += element.Nu[i][j][l]*Pio[l];
-            }
-
-            double det = 1.0;
-            double lnN = 0.0;
-            for (uint_t k = 0; k < d; ++k) {
-                if (!element.missing[k]) {
-                    double icovi = noMissingCache_->invCovariancesObserved[i](k,k);
-                    double icovj = noMissingCache_->invCovariancesObserved[j](k,k);
-                    double posi = parameters_.basisFunctionPositions(i,k);
-                    double posj = parameters_.basisFunctionPositions(j,k);
-
-                    double Cij = 1.0/(icovi + icovj);
-                    double cij = (posi*icovi + posj*icovj)*Cij;
-
-                    if (!noError) {
-                        Cij += inputError[k];
-                    }
-
-                    double Delta = input[k] - cij;
-                    lnN += square(Delta)/Cij;
-                    det *= Cij;
+        if (predictVariance_) {
+            for (uint_t i = 0; i < m; ++i)
+            for (uint_t j = 0; j <= i; ++j) {
+                double EcCij = 0.0;
+                for (uint_t l = 0; l < m; ++l) {
+                    EcCij += element.Nu[i][j][l]*Pio[l];
                 }
+
+                double det = 1.0;
+                double lnN = 0.0;
+                for (uint_t k = 0; k < d; ++k) {
+                    if (!element.missing[k]) {
+                        double icovi = noMissingCache_->invCovariancesObserved[i](k,k);
+                        double icovj = noMissingCache_->invCovariancesObserved[j](k,k);
+                        double posi = parameters_.basisFunctionPositions(i,k);
+                        double posj = parameters_.basisFunctionPositions(j,k);
+
+                        double Cij = 1.0/(icovi + icovj);
+                        double cij = (posi*icovi + posj*icovj)*Cij;
+
+                        if (!noError) {
+                            Cij += inputError[k];
+                        }
+
+                        double Delta = input[k] - cij;
+                        lnN += square(Delta)/Cij;
+                        det *= Cij;
+                    }
+                }
+
+                EcCij *= exp(-0.5*lnN)/sqrt(det);
+
+                double Pij = exp(lnZ(i,j))*EcCij;
+
+                double coef = (i == j ? 1.0 : 2.0)*Pij;
+                varianceTrainDensity += coef*modelInvCovariance_(i,j);
+                varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+                VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
             }
-
-            EcCij *= exp(-0.5*lnN)/sqrt(det);
-
-            double Pij = exp(lnZ(i,j))*EcCij;
-
-            double coef = (i == j ? 1.0 : 2.0)*Pij;
-            varianceTrainDensity += coef*modelInvCovariance_(i,j);
-            varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
-            VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
         }
     } else {
         Eigen::JacobiSVD<Mat2d> svd;
@@ -2601,24 +2612,26 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
                 basis[j] += N*Pio[i];
             }
 
-            double EcCij = 0.0;
-            for (uint_t l = 0; l < m; ++l) {
-                Delta = filledInput.col(l) - cij;
-                Sij = Cij + Psi_hat[l];
-                svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            if (predictVariance_) {
+                double EcCij = 0.0;
+                for (uint_t l = 0; l < m; ++l) {
+                    Delta = filledInput.col(l) - cij;
+                    Sij = Cij + Psi_hat[l];
+                    svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-                DeltaSolved = svd.solve(Delta);
-                N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
+                    DeltaSolved = svd.solve(Delta);
+                    N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
 
-                EcCij += N*Pio[l];
+                    EcCij += N*Pio[l];
+                }
+
+                double Pij = exp(lnZ(i,j))*EcCij;
+
+                double coef = (i == j ? 1.0 : 2.0)*Pij;
+                varianceTrainDensity += coef*modelInvCovariance_(i,j);
+                varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
+                VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
             }
-
-            double Pij = exp(lnZ(i,j))*EcCij;
-
-            double coef = (i == j ? 1.0 : 2.0)*Pij;
-            varianceTrainDensity += coef*modelInvCovariance_(i,j);
-            varianceInputNoise += coef*modelWeights_[i]*modelWeights_[j];
-            VlnS += coef*parameters_.uncertaintyBasisWeights[i]*parameters_.uncertaintyBasisWeights[j];
         }
     }
 
@@ -2626,11 +2639,13 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
 
     value = basis.transpose()*modelWeights_; // GPzMatLab: mu
 
-    varianceInputNoise -= value*value;
+    if (predictVariance_) {
+        varianceInputNoise -= value*value;
 
-    double logError = evaluateOutputLogError_(basis);
-    VlnS -= square(logError - parameters_.logUncertaintyConstant);
-    varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
+        double logError = evaluateOutputLogError_(basis);
+        VlnS -= square(logError - parameters_.logUncertaintyConstant);
+        varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
+    }
 }
 
 GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
@@ -2882,6 +2897,14 @@ void GPz::setOptimizationGradientTolerance(double tolerance) {
 
 double GPz::getOptimizationGradientTolerance() const {
     return optimizationGradientTolerance_;
+}
+
+void GPz::setPredictVariance(bool predictVariance) {
+    predictVariance_ = predictVariance;
+}
+
+bool GPz::getPredictVariance() const {
+    return predictVariance_;
 }
 
 void GPz::setVerboseMode(bool verbose) {

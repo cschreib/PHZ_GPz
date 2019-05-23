@@ -340,6 +340,7 @@ class GPz {
     uint_t                     optimizationMaxIterations_ = 500;
     double                     optimizationTolerance_ = 1e-9;
     double                     optimizationGradientTolerance_ = 1e-5;
+    bool                       predictVariance_ = true;
     bool                       verbose_ = false;
     bool                       profileTraining_ = false;
     GPzOptimizations           optimizations_;
@@ -968,6 +969,24 @@ public:
      * See setOptimizationGradientTolerance().
      */
     double getOptimizationGradientTolerance() const;
+
+    /**
+     * @brief Enable/disable predicting output variance in addition to point estimates
+     *
+     * Predicting variances is typically the most time-consuming part of the prediction stage.
+     * If these variances are not required (i.e., when testing various setups to figure out
+     * which provides the best point estimates), the computation can be disabled to save time.
+     *
+     * Default value: true.
+     */
+    void setPredictVariance(bool predictVariance);
+
+    /**
+     * @brief Check if predicting output variances in addition to point estimates
+     *
+     * See setPredictVariance().
+     */
+    bool getPredictVariance() const;
 
     /**
      * @brief Enable/disable printing the progress of the work to the standard output
