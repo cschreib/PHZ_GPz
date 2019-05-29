@@ -72,7 +72,7 @@ enum class PriorMeanFunction {
  *
  * The prior is a multi-linear function of the input values; the intercept and slope parameters
  * are marginalized over. This is implemented by introducing additional basis functions to the model
- * (one plus one per input feature), and allows the most faithfull predictions outside of the training
+ * (one plus one per input feature), and allows the most faithful predictions outside of the training
  * coverage.
  */
 
@@ -191,7 +191,7 @@ enum class NormalizationScheme {
 /** \var PHZ_GPz::NormalizationScheme::WHITEN
  * @brief The input data is whitened (default).
  *
- * Whitening is the process of substracting the data mean and dividing by the data standard deviation,
+ * Whitening is the process of subtracting the data mean and dividing by the data standard deviation,
  * so that the data for each feature has a mean of zero and a standard deviation of unity. This allows
  * faster convergence of the hyper-parameters without loss of information.
  */
@@ -227,7 +227,7 @@ enum class OptimizerMethod {
  */
 
 /** \var PHZ_GPz::OptimizerMethod::GPZ_LBFGS
- * @brief Use the custom L-BFGS aglorithm as implemented in GPz MatLab (default). For this
+ * @brief Use the custom L-BFGS algorithm as implemented in GPz MatLab (default). For this
  *        optimizer, the recommended optimization tolerance threshold is 1e-9.
  */
 
@@ -239,11 +239,11 @@ enum class OptimizerMethod {
  *
  */
 struct GPzOutput {
-    Vec1d value;                /// Predicted value
-    Vec1d uncertainty;          /// Predicted total uncertainty
-    Vec1d varianceTrainDensity; /// Predicted variance due to density of training data
-    Vec1d varianceTrainNoise;   /// Predicted variance due to training data noise
-    Vec1d varianceInputNoise;   /// Predicted variance due to input noise
+    Vec1d value;                ///< Predicted value
+    Vec1d uncertainty;          ///< Predicted total uncertainty
+    Vec1d varianceTrainDensity; ///< Predicted variance due to density of training data
+    Vec1d varianceTrainNoise;   ///< Predicted variance due to training data noise
+    Vec1d varianceInputNoise;   ///< Predicted variance due to input noise
 };
 
 /**
