@@ -345,6 +345,7 @@ class GPz {
     uint_t                     optimizationMaxIterations_ = 500;
     double                     optimizationTolerance_ = 1e-9;
     double                     optimizationGradientTolerance_ = 1e-5;
+    bool                       fuzzInitialValues_ = false;
     bool                       predictVariance_ = true;
     bool                       verbose_ = false;
     bool                       profileTraining_ = false;
@@ -427,6 +428,7 @@ class GPz {
 
     uint_t seedTrainSplit_ = 42;
     uint_t seedPositions_ = 55;
+    uint_t seedFuzzing_ = 77;
 
     // ======================
     // Minimization variables
@@ -926,6 +928,46 @@ public:
      * See setInitialPositionSeed().
      */
     uint_t getInitialPositionSeed() const;
+
+    /**
+     * @brief Enable/disable fuzzing the initial parameter values
+     *
+     * By default, only the basis function positions are randomized, and the other parameters are
+     * set to deterministic values computed from the training data. This can lead the model to
+     * always converge to the same local optimum, which may not be the global optimum.
+     *
+     * When fuzzing is enabled, all the model parameters will get randomized initial values. The
+     * random values are taken to be small perturbations (or order 30%) around the deterministic
+     * values used by default. When repeating the training multiple times with fuzzing enabled, and
+     * using a different fuzzing seed each time (see setFuzzingSeed()), one of the training solution
+     * may be able to reach a better optimum, which you can then select as your best fit.
+     *
+     * Default value: disabled.
+     */
+    void setFuzzInitialValues(bool fuzz);
+
+    /**
+     * @brief Check if fuzzing is enabled
+     *
+     * See setFuzzInitialValues().
+     */
+    bool getFuzzInitialValues() const;
+
+    /**
+     * @brief Set the random seed to use for fuzzing initial values
+     *
+     * See setFuzzInitialValues().
+     *
+     * Default value: 77.
+     */
+    void setFuzzingSeed(uint_t seed);
+
+    /**
+     * @brief Return the random seed to use for fuzzing initial values
+     *
+     * See setFuzzingSeed().
+     */
+    uint_t getFuzzingSeed(uint_t seed);
 
     /**
      * @brief Set the basis function covariance type

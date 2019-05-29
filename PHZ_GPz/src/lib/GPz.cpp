@@ -992,8 +992,19 @@ void GPz::initializeBasisFunctions_() {
 
 void GPz::initializeBasisFunctionRelevances_() {
     const uint_t n = outputTrain_.rows();
+    const uint_t m = numberBasisFunctions_;
+
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
     parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
+
+    if (fuzzInitialValues_) {
+        // Add random component
+        std::mt19937 seed(seedFuzzing_ + 1);
+        std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+        for (uint_t i = 0; i < m; ++i) {
+            parameters_.basisFunctionLogRelevances[i] += uniform(seed);
+        }
+    }
 
     if (verbose_) {
         std::cout << "initialized BF relevances" << std::endl;
@@ -1396,6 +1407,13 @@ void GPz::initializeCovariances_() {
         case CovarianceType::GLOBAL_COVARIANCE: {
             double mean_gamma = gamma.mean();
 
+            if (fuzzInitialValues_) {
+                // Add random component
+                std::mt19937 seed(seedFuzzing_ + 2);
+                std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+                mean_gamma *= exp(uniform(seed));
+            }
+
             for (uint_t i = 0; i < m; ++i)
             for (uint_t j = 0; j < d; ++j)
             for (uint_t k = 0; k < d; ++k) {
@@ -1407,10 +1425,23 @@ void GPz::initializeCovariances_() {
         case CovarianceType::VARIABLE_LENGTH:
         case CovarianceType::VARIABLE_DIAGONAL:
         case CovarianceType::VARIABLE_COVARIANCE: {
-            for (uint_t i = 0; i < m; ++i)
-            for (uint_t j = 0; j < d; ++j)
-            for (uint_t k = 0; k < d; ++k) {
-                parameters_.basisFunctionCovariances[i](j,k) = (j == k ? gamma[i] : 0.0);
+            if (fuzzInitialValues_) {
+                // Add random component
+                std::mt19937 seed(seedFuzzing_ + 2);
+                std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+
+                for (uint_t i = 0; i < m; ++i)
+                for (uint_t j = 0; j < d; ++j)
+                for (uint_t k = 0; k < d; ++k) {
+                    parameters_.basisFunctionCovariances[i](j,k) =
+                        (j == k ? gamma[i]*exp(uniform(seed)) : 0.0);
+                }
+            } else {
+                for (uint_t i = 0; i < m; ++i)
+                for (uint_t j = 0; j < d; ++j)
+                for (uint_t k = 0; k < d; ++k) {
+                    parameters_.basisFunctionCovariances[i](j,k) = (j == k ? gamma[i] : 0.0);
+                }
             }
 
             break;
@@ -1429,15 +1460,33 @@ void GPz::initializeCovariances_() {
 
 void GPz::initializeErrors_() {
     const uint_t n = inputTrain_.rows();
+    const uint_t m = numberBasisFunctions_;
 
     // Initialize constant term from variance of outputs
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
     parameters_.logUncertaintyConstant = outputLogVariance;
 
+    if (fuzzInitialValues_) {
+        // Add random component
+        std::mt19937 seed(seedFuzzing_ + 3);
+        std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+        parameters_.logUncertaintyConstant /= 2.0;
+        parameters_.logUncertaintyConstant += uniform(seed);
+    }
+
     // Initialize basis function weights to zero
     // (only optimized for OutputUncertaintyType::INPUT_DEPENDENT)
     parameters_.uncertaintyBasisWeights.fill(0.0);
     parameters_.uncertaintyBasisLogRelevances.fill(0.0);
+
+    if (fuzzInitialValues_) {
+        // Add random component
+        std::mt19937 seed(seedFuzzing_ + 4);
+        std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+        for (uint_t i = 0; i < m; ++i) {
+            parameters_.uncertaintyBasisWeights[i] = exp(outputLogVariance/2.0 + uniform(seed));
+        }
+    }
 
     if (verbose_) {
         std::cout << "initialized output errors" << std::endl;
@@ -3256,6 +3305,22 @@ void GPz::setInitialPositionSeed(uint_t seed) {
 
 uint_t GPz::getInitialPositionSeed() const {
     return seedPositions_;
+}
+
+void GPz::setFuzzInitialValues(bool fuzz) {
+    fuzzInitialValues_ = fuzz;
+}
+
+bool GPz::getFuzzInitialValues() const {
+    return fuzzInitialValues_;
+}
+
+void GPz::setFuzzingSeed(uint_t seed) {
+    seedFuzzing_ = seed;
+}
+
+uint_t GPz::getFuzzingSeed(uint_t seed) {
+    return seedFuzzing_;
 }
 
 void GPz::setCovarianceType(CovarianceType type) {
