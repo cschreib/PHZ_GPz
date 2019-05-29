@@ -11,7 +11,7 @@
 #  EIGEN3_INCLUDE_DIR - the eigen include directory
 #  EIGEN3_VERSION - eigen version
 #
-# This module reads hints about search locations from 
+# This module reads hints about search locations from
 # the following enviroment variables:
 #
 # EIGEN3_ROOT
@@ -65,9 +65,10 @@ if (EIGEN3_INCLUDE_DIR)
   # in cache already
   _eigen3_check_version()
   set(EIGEN3_FOUND ${EIGEN3_VERSION_OK})
+  set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
 else (EIGEN3_INCLUDE_DIR)
-  
+
   # search first if an Eigen3Config.cmake is available in the system,
   # if successful this would set EIGEN3_INCLUDE_DIR and the rest of
   # the script will work as usual
@@ -76,7 +77,7 @@ else (EIGEN3_INCLUDE_DIR)
   if(NOT EIGEN3_INCLUDE_DIR)
     find_path(EIGEN3_INCLUDE_DIR NAMES Eigen/Eigen
         HINTS
-        ENV EIGEN3_ROOT 
+        ENV EIGEN3_ROOT
         ENV EIGEN3_ROOT_DIR
         PATHS
         ${CMAKE_INSTALL_PREFIX}/include
