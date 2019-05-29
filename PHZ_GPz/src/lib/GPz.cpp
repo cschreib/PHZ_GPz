@@ -3164,7 +3164,7 @@ uint_t GPz::getNumberOfBasisFunctions() const {
 void GPz::setPriorMeanFunction(PriorMeanFunction newFunction) {
     if (newFunction != priorMean_) {
         if (newFunction == PriorMeanFunction::LINEAR_MARGINALIZE ||
-            newFunction != PriorMeanFunction::LINEAR_PREPROCESS) {
+            newFunction == PriorMeanFunction::LINEAR_PREPROCESS) {
             throw std::runtime_error("not implemented");
         }
 
