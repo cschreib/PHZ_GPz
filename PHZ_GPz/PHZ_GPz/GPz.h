@@ -294,8 +294,8 @@ struct GPzModel {
 struct GPzOptimizations {
     bool specializeForSingleFeature = true;
     bool specializeForDiagCovariance = true;
-    bool enableMultithreading = true;
-    uint_t maxThreads = 4;
+    bool enableMultithreading = false;
+    uint_t maxThreads = 1;
 };
 
 /** \var PHZ_GPz::GPzOptimizations::specializeForSingleFeature
