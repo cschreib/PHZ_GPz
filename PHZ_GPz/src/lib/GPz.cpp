@@ -2812,191 +2812,6 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
     return result;
 }
 
-// =============================
-// Configuration getters/setters
-// =============================
-
-void GPz::setNumberOfBasisFunctions(uint_t num) {
-    if (num != numberBasisFunctions_) {
-        numberBasisFunctions_ = num;
-        reset_();
-    }
-}
-
-uint_t GPz::getNumberOfBasisFunctions() const {
-    return numberBasisFunctions_;
-}
-
-void GPz::setPriorMeanFunction(PriorMeanFunction newFunction) {
-    if (newFunction != priorMean_) {
-        if (newFunction == PriorMeanFunction::LINEAR_MARGINALIZE ||
-            newFunction != PriorMeanFunction::LINEAR_PREPROCESS) {
-            throw std::runtime_error("not implemented");
-        }
-
-        priorMean_ = newFunction;
-        reset_();
-    }
-}
-
-PriorMeanFunction GPz::getPriorMeanFunction() const {
-    return priorMean_;
-}
-
-void GPz::setNumberOfFeatures_(uint_t num) {
-    if (num != numberFeatures_) {
-        if (verbose_) {
-            std::cout << "setting number of features to " << num << std::endl;
-        }
-
-        numberFeatures_ = num;
-        reset_();
-    }
-}
-
-uint_t GPz::getNumberOfFeatures() const {
-    return numberFeatures_;
-}
-
-void GPz::setWeightingScheme(WeightingScheme scheme) {
-    weightingScheme_ = scheme;
-}
-
-WeightingScheme GPz::getWeightingScheme() const {
-    return weightingScheme_;
-}
-
-void GPz::setBalancedWeightingBinSize(double size) {
-    balancedWeightingBinSize_ = size;
-}
-
-double GPz::getBalancedWeightingBinSize() const {
-    return balancedWeightingBinSize_;
-}
-
-void GPz::setBalancedWeightingMaxWeight(double weight) {
-    balancedWeightingMaxWeight_ = weight;
-}
-
-double GPz::getBalancedWeightingMaxWeight() const {
-    return balancedWeightingMaxWeight_;
-}
-
-void GPz::setNormalizationScheme(NormalizationScheme scheme) {
-    normalizationScheme_ = scheme;
-}
-
-NormalizationScheme GPz::getNormalizationScheme() const {
-    return normalizationScheme_;
-}
-
-void GPz::setTrainValidationSplitMethod(TrainValidationSplitMethod method) {
-    trainValidSplitMethod_ = method;
-}
-
-TrainValidationSplitMethod GPz::getTrainValidationSplitMethod() const {
-    return trainValidSplitMethod_;
-}
-
-void GPz::setTrainValidationRatio(double ratio) {
-    trainValidRatio_ = ratio;
-}
-
-double GPz::getTrainValidationRatio() const {
-    return trainValidRatio_;
-}
-
-void GPz::setTrainValidationSplitSeed(uint_t seed) {
-    seedTrainSplit_ = seed;
-}
-
-uint_t GPz::getTrainValidationSplitSeed() const {
-    return seedTrainSplit_;
-}
-
-void GPz::setInitialPositionSeed(uint_t seed) {
-    seedPositions_ = seed;
-}
-
-uint_t GPz::getInitialPositionSeed() const {
-    return seedPositions_;
-}
-
-void GPz::setCovarianceType(CovarianceType type) {
-    covarianceType_ = type;
-}
-
-CovarianceType GPz::getCovarianceType() const {
-    return covarianceType_;
-}
-
-void GPz::setOutputUncertaintyType(OutputUncertaintyType type) {
-    outputUncertaintyType_ = type;
-}
-
-OutputUncertaintyType GPz::getOutputUncertaintyType() const {
-    return outputUncertaintyType_;
-}
-
-void GPz::setOptimizerMethod(OptimizerMethod method) {
-    optimizerMethod_ = method;
-}
-
-OptimizerMethod GPz::getOptimizerMethod() const {
-    return optimizerMethod_;
-}
-
-void GPz::setOptimizationMaxIterations(uint_t maxIterations) {
-    optimizationMaxIterations_ = maxIterations;
-}
-
-uint_t GPz::getOptimizationMaxIterations() const {
-    return optimizationMaxIterations_;
-}
-
-void GPz::setOptimizationTolerance(double tolerance) {
-    optimizationTolerance_ = tolerance;
-}
-
-double GPz::getOptimizationTolerance() const {
-    return optimizationTolerance_;
-}
-
-void GPz::setOptimizationGradientTolerance(double tolerance) {
-    optimizationGradientTolerance_ = tolerance;
-}
-
-double GPz::getOptimizationGradientTolerance() const {
-    return optimizationGradientTolerance_;
-}
-
-void GPz::setPredictVariance(bool predictVariance) {
-    predictVariance_ = predictVariance;
-}
-
-bool GPz::getPredictVariance() const {
-    return predictVariance_;
-}
-
-void GPz::setVerboseMode(bool verbose) {
-    verbose_ = verbose;
-}
-
-bool GPz::getVerboseMode() const {
-    return verbose_;
-}
-
-void GPz::setOptimizationFlags(GPzOptimizations optimizations) {
-    optimizations_ = optimizations;
-}
-
-GPzOptimizations GPz::getOptimizationFlags() const {
-    return optimizations_;
-}
-
-void GPz::setProfileTraining(bool profile) {
-    profileTraining_ = profile;
-}
 
 // =====================
 // Fit/training function
@@ -3333,6 +3148,192 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     }
 
     return result;
+}
+
+// =============================
+// Configuration getters/setters
+// =============================
+
+void GPz::setNumberOfBasisFunctions(uint_t num) {
+    if (num != numberBasisFunctions_) {
+        numberBasisFunctions_ = num;
+        reset_();
+    }
+}
+
+uint_t GPz::getNumberOfBasisFunctions() const {
+    return numberBasisFunctions_;
+}
+
+void GPz::setPriorMeanFunction(PriorMeanFunction newFunction) {
+    if (newFunction != priorMean_) {
+        if (newFunction == PriorMeanFunction::LINEAR_MARGINALIZE ||
+            newFunction != PriorMeanFunction::LINEAR_PREPROCESS) {
+            throw std::runtime_error("not implemented");
+        }
+
+        priorMean_ = newFunction;
+        reset_();
+    }
+}
+
+PriorMeanFunction GPz::getPriorMeanFunction() const {
+    return priorMean_;
+}
+
+void GPz::setNumberOfFeatures_(uint_t num) {
+    if (num != numberFeatures_) {
+        if (verbose_) {
+            std::cout << "setting number of features to " << num << std::endl;
+        }
+
+        numberFeatures_ = num;
+        reset_();
+    }
+}
+
+uint_t GPz::getNumberOfFeatures() const {
+    return numberFeatures_;
+}
+
+void GPz::setWeightingScheme(WeightingScheme scheme) {
+    weightingScheme_ = scheme;
+}
+
+WeightingScheme GPz::getWeightingScheme() const {
+    return weightingScheme_;
+}
+
+void GPz::setBalancedWeightingBinSize(double size) {
+    balancedWeightingBinSize_ = size;
+}
+
+double GPz::getBalancedWeightingBinSize() const {
+    return balancedWeightingBinSize_;
+}
+
+void GPz::setBalancedWeightingMaxWeight(double weight) {
+    balancedWeightingMaxWeight_ = weight;
+}
+
+double GPz::getBalancedWeightingMaxWeight() const {
+    return balancedWeightingMaxWeight_;
+}
+
+void GPz::setNormalizationScheme(NormalizationScheme scheme) {
+    normalizationScheme_ = scheme;
+}
+
+NormalizationScheme GPz::getNormalizationScheme() const {
+    return normalizationScheme_;
+}
+
+void GPz::setTrainValidationSplitMethod(TrainValidationSplitMethod method) {
+    trainValidSplitMethod_ = method;
+}
+
+TrainValidationSplitMethod GPz::getTrainValidationSplitMethod() const {
+    return trainValidSplitMethod_;
+}
+
+void GPz::setTrainValidationRatio(double ratio) {
+    trainValidRatio_ = ratio;
+}
+
+double GPz::getTrainValidationRatio() const {
+    return trainValidRatio_;
+}
+
+void GPz::setTrainValidationSplitSeed(uint_t seed) {
+    seedTrainSplit_ = seed;
+}
+
+uint_t GPz::getTrainValidationSplitSeed() const {
+    return seedTrainSplit_;
+}
+
+void GPz::setInitialPositionSeed(uint_t seed) {
+    seedPositions_ = seed;
+}
+
+uint_t GPz::getInitialPositionSeed() const {
+    return seedPositions_;
+}
+
+void GPz::setCovarianceType(CovarianceType type) {
+    covarianceType_ = type;
+}
+
+CovarianceType GPz::getCovarianceType() const {
+    return covarianceType_;
+}
+
+void GPz::setOutputUncertaintyType(OutputUncertaintyType type) {
+    outputUncertaintyType_ = type;
+}
+
+OutputUncertaintyType GPz::getOutputUncertaintyType() const {
+    return outputUncertaintyType_;
+}
+
+void GPz::setOptimizerMethod(OptimizerMethod method) {
+    optimizerMethod_ = method;
+}
+
+OptimizerMethod GPz::getOptimizerMethod() const {
+    return optimizerMethod_;
+}
+
+void GPz::setOptimizationMaxIterations(uint_t maxIterations) {
+    optimizationMaxIterations_ = maxIterations;
+}
+
+uint_t GPz::getOptimizationMaxIterations() const {
+    return optimizationMaxIterations_;
+}
+
+void GPz::setOptimizationTolerance(double tolerance) {
+    optimizationTolerance_ = tolerance;
+}
+
+double GPz::getOptimizationTolerance() const {
+    return optimizationTolerance_;
+}
+
+void GPz::setOptimizationGradientTolerance(double tolerance) {
+    optimizationGradientTolerance_ = tolerance;
+}
+
+double GPz::getOptimizationGradientTolerance() const {
+    return optimizationGradientTolerance_;
+}
+
+void GPz::setPredictVariance(bool predictVariance) {
+    predictVariance_ = predictVariance;
+}
+
+bool GPz::getPredictVariance() const {
+    return predictVariance_;
+}
+
+void GPz::setVerboseMode(bool verbose) {
+    verbose_ = verbose;
+}
+
+bool GPz::getVerboseMode() const {
+    return verbose_;
+}
+
+void GPz::setOptimizationFlags(GPzOptimizations optimizations) {
+    optimizations_ = optimizations;
+}
+
+GPzOptimizations GPz::getOptimizationFlags() const {
+    return optimizations_;
+}
+
+void GPz::setProfileTraining(bool profile) {
+    profileTraining_ = profile;
 }
 
 }  // namespace PHZ_GPz
