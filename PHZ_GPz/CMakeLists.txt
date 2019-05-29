@@ -29,8 +29,8 @@ endif()
 
 find_package(Eigen3 REQUIRED)
 
-if (NOT BYPASS_ELEMENTS)
-    find_package(Boost)
+if (NOT BYPASS_ELEMENTS OR DO_TEST)
+    find_package(Boost COMPONENTS unit_test_framework)
 endif()
 
 if (NOT NO_GSL)
@@ -143,4 +143,26 @@ else()
 
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/PHZ_GPz/Config.h
         DESTINATION include/PHZ_GPz)
+
+    if (DO_TEST)
+        enable_testing()
+        set(BOOST_INCLUDE_DIRS ${boost_installation_prefix}/include)
+
+        # creates the executable
+        add_executable(GPz_test tests/src/GPz_test.cpp)
+        target_link_libraries(GPz_test GPz)
+        target_link_libraries(GPz_test ${Boost_LIBRARIES})
+        target_link_libraries(GPz_test ${GPZ_LIBRARIES})
+        target_link_libraries(GPz_test ${EIGEN3_LIBRARIES})
+        target_compile_definitions(GPz_test PRIVATE "BOOST_TEST_DYN_LINK=1")
+        target_compile_definitions(GPz_test PRIVATE "BOOST_TEST_MODULE=1")
+        if (NOT NO_GSL)
+            target_link_libraries(GPz_test ${GSL_LIBRARIES})
+        endif()
+        # indicates the include paths
+        target_include_directories(GPz_test PRIVATE ${Boost_INCLUDE_DIRS})
+
+        # declares a test with our executable
+        add_test(NAME test COMMAND GPz_test)
+    endif()
 endif()
