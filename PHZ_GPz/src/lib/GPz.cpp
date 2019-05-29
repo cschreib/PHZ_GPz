@@ -289,6 +289,8 @@ void GPz::resizeHyperParameters_(GPzHyperParameters& params) const {
 // ==================================
 
 void GPz::updateNumberParameters_() {
+    numberParameters_ = 0;
+
     // Pseudo input position
     indexBasisPosition_ = 0;
     numberParameters_ += numberBasisFunctions_*numberFeatures_;
