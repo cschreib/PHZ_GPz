@@ -500,14 +500,14 @@ class GPz {
     void normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i& missing,
         Vec1d& output, const Vec1d& weight);
 
-    void eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output) const;
+    void eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output, Vec1d& weight) const;
 
     void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
         const Vec1d& output, const Vec1d& weight);
 
     Vec1d computeWeights_(const Vec1d& output) const;
 
-    void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output);
+    void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight);
 
     void computeTrainingPCA_();
 
@@ -1017,6 +1017,12 @@ public:
     /**
      * @brief Enable/disable printing the progress of the work to the standard output
      *
+     * By default the program will not output anything in the standard output, so you will have
+     * no feedback as to its progress. This is OK for un-supervised runs, but if you are running
+     * GPz for the first time on a new data set, it can be useful to check what the code is doing,
+     * and get an estimate of how long it will take to run. Enabling the "verbose" mode allows you
+     * to do so, with a very minimal impact on performances.
+     *
      * Default value: false (no output).
      */
     void setVerboseMode(bool verbose);
@@ -1053,25 +1059,114 @@ public:
 
     /**@}*/
 
+    /**
+     * @name Training
+     */
+    /**@{*/
+
     // =====================
     // Fit/training function
     // =====================
 
-    void fit(Mat2d input, Mat2d inputError, Vec1d output);
+    /**
+     * @brief Train the GPz model
+     *
+     * \param input 2D array of feature values for each element of the training set
+     *              (dimensions: N_element x N_feature)
+     * \param inputError 2D array of feature uncertainties associated to the input feature values
+     *                   (dimensions: N_element x N_feature; or empty if there are no uncertainties)
+     * \param output 1D array of output values to train against (dimensions: N_element)
+     * \param weight 1D array of weights to use in training (dimensions: N_element; or empty to let
+     *               GPz determine the weights, see setWeightingScheme())
+     *
+     * Invalid values (infinite or not-a-number) in the inputs and/or in the input uncertainties
+     * will be considered as missing features and will be treated accordingly. If some elements of
+     * the training set have all their features missing, or if their output value and/or weight are
+     * invalid, they will be discarded and will not participate to the training.
+     *
+     * The input errors should be given as "one sigma" uncertainties, not variances. Zero is an
+     * acceptable value, and signifies that there is no uncertainty.
+     *
+     * It is not possible to set bounds on the output values. If your output space is bounded (for
+     * example, if negative values are not permitted) you should transform your output values to
+     * an un-bounded output space (for example, using a logarithm for strictly positive outputs).
+     *
+     * Once the training is complete, you may use the getModel() and predict() functions.
+     */
+    void fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight);
+
+    /**@}*/
+
+    /**
+     * @name Accessing the GPz model
+     */
+    /**@{*/
 
     // ========================
     // Fit model loading/saving
     // ========================
 
+    /**
+     * @brief Load a pre-trained model
+     *
+     * The training stage can be time-consuming, but it usually only needs to be done once. After
+     * the training is complete, the resulting model parameters can be accessed with getNodel() to
+     * be saved somewhere, for example by writing them somewhere on the hard drive, and re-loaded
+     * later for reuse with loadModel().
+     *
+     * You can also use this function to experiment with the GPz model and manually input model
+     * parameters. The function will check that the parameter values are valid and will throw an
+     * exception if anything is wrong; in this case the internal model of the class will be left
+     * unchanged. Else, if a model previously existed in the class, it will be discarded.
+     */
     void loadModel(const GPzModel& model);
 
+    /**
+     * @brief Get a copy of the current model
+     *
+     * See loadModel(). The returned model is only a copy of the model that is internally
+     * used by the class; it is not a reference. If you make modifications to the output value of
+     * this function, you have to load it back in with loadModel() for your changes to take effect.
+     *
+     * \pre A model must currently exist in the class, for example by calling fit() or loadModel().
+     * If not, the function will throw an exception.
+     */
     GPzModel getModel() const;
+
+    /**@}*/
+
+    /**
+     * @name Predicting
+     */
+    /**@{*/
 
     // ===================
     // Prediction function
     // ===================
 
+    /**
+     * @brief Make a prediction or test using the current model
+     *
+     * \param input 2D array of feature values for each element of the testing set
+     *              (dimensions: N_element x N_feature)
+     * \param inputError 2D array of feature uncertainties associated to the input feature values
+     *                   (dimensions: N_element x N_feature; or empty if there are no uncertainties)
+     * \return A GPzOutput struct holding the results of the prediction, including predicted values
+     *         and predicted uncertainties.
+     *
+     * Invalid values (infinite or not-a-number) in the inputs and/or in the input uncertainties
+     * will be considered as missing features and will be treated accordingly. If some elements of
+     * the testing set have all their features missing, GPz will still make a prediction.
+     *
+     * The input errors should be given as "one sigma" uncertainties, not variances. Zero is an
+     * acceptable value, and signifies that there is no uncertainty.
+     *
+     * \pre A model must currently exist in the class, for example by calling fit() or loadModel().
+     * If not, the function will throw an exception.
+     */
     GPzOutput predict(Mat2d input, Mat2d inputError) const;
+
+    /**@}*/
 
 };  // End of GPz class
 

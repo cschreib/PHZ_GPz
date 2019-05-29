@@ -620,10 +620,11 @@ void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i&
     applyOutputNormalization_(input, missing, output);
 }
 
-void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output) const {
+void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output, Vec1d& weight) const {
     uint_t n = input.rows();
     const uint_t d = numberFeatures_;
     const bool noError = inputError.rows() == 0;
+    const bool noWeight = weight.rows() == 0;
 
     std::vector<uint_t> valid;
     valid.reserve(n);
@@ -631,7 +632,7 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output)
     for (uint_t i = 0; i < n; ++i) {
         bool good = false;
 
-        if (std::isfinite(output[i])) {
+        if (std::isfinite(output[i]) && (noWeight || (std::isfinite(weight[i])) && weight[i] > 0)) {
             for (uint_t k = 0; k < d; ++k) {
                 if (std::isfinite(input(i,k)) && (noError || std::isfinite(inputError(i,k)))) {
                     good = true;
@@ -650,9 +651,10 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output)
             std::cout << "removing " << n - valid.size() << " invalid inputs" << std::endl;
         }
 
-        Mat2d oldInput = std::move(input);
-        Mat2d oldError = std::move(inputError);
+        Mat2d oldInput  = std::move(input);
+        Mat2d oldError  = std::move(inputError);
         Mat1d oldOutput = std::move(output);
+        Mat1d oldWeight = std::move(weight);
 
         n = valid.size();
 
@@ -661,6 +663,9 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output)
         if (!noError) {
             inputError.resize(n,d);
         }
+        if (!noWeight) {
+            weight.resize(n);
+        }
 
         for (uint_t i = 0; i < n; ++i) {
             uint_t o = valid[i];
@@ -668,6 +673,9 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output)
             input.row(i) = oldInput.row(o);
             if (!noError) {
                 inputError.row(i) = oldError.row(o);
+            }
+            if (!noWeight) {
+                weight[i] = oldWeight[o];
             }
         }
     }
@@ -829,12 +837,37 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
     return weight;
 }
 
-void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output) {
+void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
     // Cleanup the sample
-    eraseInvalidTrainData_(input, inputError, output);
+    eraseInvalidTrainData_(input, inputError, output, weight);
 
-    // Compute weights and split training/valid
-    Vec1d weight = computeWeights_(output);
+    if (weight.rows() == 0) {
+        // Compute weights
+        weight = computeWeights_(output);
+    }
+
+    // Print weight statistics
+    if (verbose_) {
+        double w00 = weight.minCoeff();
+        double w100 = weight.maxCoeff();
+
+        // nth_element changes element order, need to work on a copy of weights
+        Vec1d weightCopy = weight;
+        auto get_percentile = [](Vec1d& v, double perc) {
+            uint_t pt = round(v.size()*perc);
+            std::nth_element(begin(v), begin(v) + pt, end(v));
+            return v[pt];
+        };
+
+        double w16 = get_percentile(weightCopy, 0.16);
+        double w50 = get_percentile(weightCopy, 0.5);
+        double w84 = get_percentile(weightCopy, 0.84);
+
+        std::cout << "weights: " << w00 << " (min), " << w16 << " (16%), " << w50 << " (med), "
+            << w84 << " (84%), " << w100 << " (max)" << std::endl;
+    }
+
+    // Split training/valid
     splitTrainValid_(input, inputError, output, weight);
 
     // Setup missing cache
@@ -2969,7 +3002,7 @@ void GPz::setProfileTraining(bool profile) {
 // Fit/training function
 // =====================
 
-void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
+void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
     // Check inputs are consistent
     if (!checkErrorDimensions_(input, inputError)) {
         throw std::runtime_error("input uncertainty has incorrect dimension");
@@ -2983,11 +3016,14 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output) {
         if (inputError.rows() != 0) {
             std::cout << "found uncertainties for the features" << std::endl;
         }
+        if (weight.rows() != 0) {
+            std::cout << "found weights for the outputs" << std::endl;
+        }
     }
 
     // Normalize the inputs
     setNumberOfFeatures_(input.cols());
-    initializeInputs_(std::move(input), std::move(inputError), std::move(output));
+    initializeInputs_(std::move(input), std::move(inputError), std::move(output), std::move(weight));
 
     // Setup the fit, initialize arrays, etc.
     initializeFit_();
