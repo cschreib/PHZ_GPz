@@ -764,11 +764,13 @@ void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
 }
 
 Vec1d GPz::computeWeights_(const Vec1d& output) const {
+    const uint_t n = output.rows();
+
     Vec1d weight;
 
     switch (weightingScheme_) {
         case WeightingScheme::UNIFORM: {
-            weight.resize(output.rows());
+            weight.resize(n);
             weight.fill(1.0);
             break;
         }
@@ -788,7 +790,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 
             // Compute histogram of counts in bins
             uint_t maxCount = 0;
-            weight.setZero(output.rows());
+            weight.setZero(n);
             histogram(output, bins, [&](uint_t /*index*/, histogram_iterator begin, histogram_iterator end) {
                 uint_t count = end - begin;
                 for (histogram_iterator iter = begin; iter != end; ++iter) {
@@ -803,11 +805,22 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
             // Set weight as ~ 1/count and normalize to maximum weight of one
             weight = maxCount/weight;
 
+            // Apply max weight
+            if (std::isfinite(balancedWeightingMaxWeight_)) {
+                for (uint_t i = 0; i < n; ++i) {
+                    if (weight[i] > balancedWeightingMaxWeight_) {
+                        weight[i] = 1.0;
+                    } else {
+                        weight[i] /= balancedWeightingMaxWeight_;
+                    }
+                }
+            }
+
             break;
         }
     }
 
-    for (uint_t i = 0; i < output.rows(); ++i) {
+    for (uint_t i = 0; i < n; ++i) {
         if (!std::isfinite(weight[i])) {
             throw std::runtime_error("invalid weight found for output value");
         }
@@ -2825,6 +2838,14 @@ void GPz::setBalancedWeightingBinSize(double size) {
 
 double GPz::getBalancedWeightingBinSize() const {
     return balancedWeightingBinSize_;
+}
+
+void GPz::setBalancedWeightingMaxWeight(double weight) {
+    balancedWeightingMaxWeight_ = weight;
+}
+
+double GPz::getBalancedWeightingMaxWeight() const {
+    return balancedWeightingMaxWeight_;
 }
 
 void GPz::setNormalizationScheme(NormalizationScheme scheme) {

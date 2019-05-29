@@ -336,6 +336,7 @@ class GPz {
     TrainValidationSplitMethod trainValidSplitMethod_ = TrainValidationSplitMethod::RANDOM;
     OptimizerMethod            optimizerMethod_ = OptimizerMethod::GPZ_LBFGS;
     double                     balancedWeightingBinSize_ = 0.1;
+    double                     balancedWeightingMaxWeight_ = 10.0;
     double                     trainValidRatio_ = 0.5;
     uint_t                     optimizationMaxIterations_ = 500;
     double                     optimizationTolerance_ = 1e-9;
@@ -726,6 +727,29 @@ public:
      * See setBalancedWeightingBinSize().
      */
     double getBalancedWeightingBinSize() const;
+
+    /**
+     * @brief Set the maximum weight allowed in the balanced weighting scheme
+     *
+     * See WeightingScheme::BALANCED. In the "balanced" weighting scheme, elements of the training
+     * set are weighted according to inverse density, to down-weights the regions of the parameter
+     * space that are over-represented. In the most extreme cases, this can lead to differences in
+     * weights of several orders of magnitude, putting a large weight on a few elements. To mitigate
+     * this, the method imposes a maximum relative weight between the highest and lowest weighted
+     * elements, which is controlled by this value.
+     *
+     * This behavior can be disabled (allowing any weight) by setting this value to not-a-number.
+     *
+     * Default value: 10.
+     */
+    void setBalancedWeightingMaxWeight(double weight);
+
+    /**
+     * @brief Return the maximum weight allowed in the balanced weighting scheme
+     *
+     * See setBalancedWeightingMaxWeight().
+     */
+    double getBalancedWeightingMaxWeight() const;
 
     /**
      * @brief Set the scheme used to pre-normalize the training data
