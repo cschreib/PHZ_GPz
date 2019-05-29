@@ -632,7 +632,7 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output,
     for (uint_t i = 0; i < n; ++i) {
         bool good = false;
 
-        if (std::isfinite(output[i]) && (noWeight || (std::isfinite(weight[i])) && weight[i] > 0)) {
+        if (std::isfinite(output[i]) && (noWeight || (std::isfinite(weight[i]) && weight[i] > 0))) {
             for (uint_t k = 0; k < d; ++k) {
                 if (std::isfinite(input(i,k)) && (noError || std::isfinite(inputError(i,k)))) {
                     good = true;
