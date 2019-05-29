@@ -3215,6 +3215,11 @@ void GPz::loadModel(const GPzModel& model) {
 GPzModel GPz::getModel() const {
     GPzModel model;
 
+    // Check that we have a usable set of parameters
+    if (parameters_.basisFunctionPositions.rows() == 0) {
+        throw std::runtime_error("model is not initialized");
+    }
+
     model.priorMean = priorMean_;
     model.outputUncertaintyType = outputUncertaintyType_;
     model.normalizationScheme = normalizationScheme_;
