@@ -160,7 +160,7 @@ enum class WeightingScheme {
 };
 
 /** \var PHZ_GPz::WeightingScheme::UNIFORM
- * @brief All the training data has the same weight.
+ * @brief All the training data has the same weight (default).
  */
 
 /** \var PHZ_GPz::WeightingScheme::ONE_OVER_ONE_PLUS_OUTPUT
@@ -170,7 +170,7 @@ enum class WeightingScheme {
  */
 
 /** \var PHZ_GPz::WeightingScheme::BALANCED
- * @brief Weight training data uniformly in output space (default).
+ * @brief Weight training data uniformly in output space.
  *
  * This weights training data by '1/counts', where 'counts' is the number of training data points with
  * similar output value. The similarity criterion can be controlled using setBalancedWeightingBinSize().
@@ -334,7 +334,7 @@ class GPz {
     PriorMeanFunction          priorMean_ = PriorMeanFunction::CONSTANT_PREPROCESS;
     CovarianceType             covarianceType_ = CovarianceType::VARIABLE_COVARIANCE;
     OutputUncertaintyType      outputUncertaintyType_ = OutputUncertaintyType::INPUT_DEPENDENT;
-    WeightingScheme            weightingScheme_ = WeightingScheme::BALANCED;
+    WeightingScheme            weightingScheme_ = WeightingScheme::UNIFORM;
     NormalizationScheme        normalizationScheme_ = NormalizationScheme::WHITEN;
     TrainValidationSplitMethod trainValidSplitMethod_ = TrainValidationSplitMethod::RANDOM;
     OptimizerMethod            optimizerMethod_ = OptimizerMethod::GPZ_LBFGS;
@@ -774,7 +774,7 @@ public:
      *
      * See WeightingScheme.
      *
-     * Default value: WeightingScheme::BALANCED.
+     * Default value: WeightingScheme::UNIFORM.
      */
     void setWeightingScheme(WeightingScheme scheme);
 
