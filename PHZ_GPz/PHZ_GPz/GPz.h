@@ -235,10 +235,12 @@ enum class OptimizerMethod {
  * @struct GPzOutput
  * @brief Store the output of a GPz run
  *
+ * Note: uncertainty = sqrt(varianceTrainDensity + varianceTrainNoise + varianceInputNoise)
+ *
  */
 struct GPzOutput {
     Vec1d value;                /// Predicted value
-    Vec1d variance;             /// Predicted total variance
+    Vec1d uncertainty;          /// Predicted total uncertainty
     Vec1d varianceTrainDensity; /// Predicted variance due to density of training data
     Vec1d varianceTrainNoise;   /// Predicted variance due to training data noise
     Vec1d varianceInputNoise;   /// Predicted variance due to input noise

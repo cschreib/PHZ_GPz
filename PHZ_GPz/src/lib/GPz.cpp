@@ -2772,8 +2772,9 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 
     pool.execute(doPrediction, n);
 
-    result.variance = result.varianceTrainDensity + result.varianceTrainNoise
-        + result.varianceInputNoise;
+    result.uncertainty = sqrt(
+        result.varianceTrainDensity + result.varianceTrainNoise + result.varianceInputNoise
+    );
 
     return result;
 }
