@@ -24,7 +24,7 @@
 #include "PHZ_GPz/GPz.h"
 #include "PHZ_GPz/STLWrapper.h"
 #include "PHZ_GPz/LBFGS.h"
-#ifndef NO_GSL
+#ifndef GPZ_NO_GSL
 #include "PHZ_GPz/GSLWrapper.h"
 #endif
 
@@ -2901,7 +2901,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
     if (optimizerMethod_ == OptimizerMethod::GPZ_LBFGS) {
         result = Minimize::minimizeLBFGS(options, initialValues, minFunc);
     } else {
-        #ifdef NO_GSL
+        #ifdef GPZ_NO_GSL
         throw std::runtime_error("GSL minimizer is not available");
         #else
         result = Minimize::minimizeBFGS(options, initialValues, minFunc);

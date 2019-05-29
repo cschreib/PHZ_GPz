@@ -113,12 +113,11 @@ else()
         set(CMAKE_CXX_STANDARD_REQUIRED ON)
     endif()
 
+    include_directories(${CMAKE_CURRENT_BINARY_DIR})
     include_directories(${PROJECT_SOURCE_DIR}/PHZ_GPz)
     include_directories(${EIGEN3_INCLUDE_DIRS})
     if (NOT NO_GSL)
         include_directories(${GSL_INCLUDE_DIRS})
-    else()
-        add_definitions(-DNO_GSL)
     endif()
 
     add_library(GPz SHARED src/lib/GPz.cpp)
@@ -129,6 +128,19 @@ else()
 
     install(TARGETS GPz DESTINATION lib)
 
-    file(GLOB HEADERS PHZ_GPz/*.h)
-    install(FILES ${HEADERS} DESTINATION include/PHZ_GPz)
+    install(FILES
+        PHZ_GPz/EigenTypes.h
+        PHZ_GPz/EigenWrapper.h
+        PHZ_GPz/GPz.h
+        PHZ_GPz/GSLWrapper.h
+        PHZ_GPz/LBFGS.h
+        PHZ_GPz/Minimize.h
+        PHZ_GPz/STLWrapper.h
+        PHZ_GPz/Utils.h
+        DESTINATION include/PHZ_GPz)
+
+    configure_file(PHZ_GPz/Config.h.in PHZ_GPz/Config.h)
+
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/PHZ_GPz/Config.h
+        DESTINATION include/PHZ_GPz)
 endif()

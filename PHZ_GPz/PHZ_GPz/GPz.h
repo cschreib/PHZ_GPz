@@ -24,6 +24,7 @@
 #ifndef _PHZ_GPZ_GPZ_H
 #define _PHZ_GPZ_GPZ_H
 
+#include "PHZ_GPz/Config.h"
 #include "PHZ_GPz/Utils.h"
 #include "PHZ_GPz/EigenWrapper.h"
 #include "PHZ_GPz/Minimize.h"
