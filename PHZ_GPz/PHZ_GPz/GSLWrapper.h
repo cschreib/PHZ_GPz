@@ -24,8 +24,8 @@
 #ifndef _PHZ_GPZ_GSL_WRAPPER_H
 #define _PHZ_GPZ_GSL_WRAPPER_H
 
-#include "PHZ_GPz/STLWrapper.h"
-#include "PHZ_GPz/EigenWrapper.h"
+#include "PHZ_GPz/Utils.h"
+#include "PHZ_GPz/EigenTypes.h"
 #include "PHZ_GPz/Minimize.h"
 
 #include <limits>

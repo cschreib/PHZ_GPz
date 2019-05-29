@@ -24,6 +24,8 @@
 #ifndef _PHZ_GPZ_STL_WRAPPER_H
 #define _PHZ_GPZ_STL_WRAPPER_H
 
+#include "PHZ_GPz/Utils.h"
+
 #include <algorithm>
 #include <memory>
 #include <vector>
@@ -36,8 +38,6 @@
 #include <functional>
 
 namespace PHZ_GPz {
-
-    using uint_t = std::size_t;
 
     using histogram_iterator = std::vector<uint_t>::const_iterator;
 

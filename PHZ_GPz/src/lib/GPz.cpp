@@ -22,6 +22,7 @@
  */
 
 #include "PHZ_GPz/GPz.h"
+#include "PHZ_GPz/STLWrapper.h"
 #include "PHZ_GPz/LBFGS.h"
 #ifndef NO_GSL
 #include "PHZ_GPz/GSLWrapper.h"

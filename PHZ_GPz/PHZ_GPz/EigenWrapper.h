@@ -24,26 +24,15 @@
 #ifndef _PHZ_GPZ_EIGEN_WRAPPER_H
 #define _PHZ_GPZ_EIGEN_WRAPPER_H
 
-#include <Eigen/Dense>
+#include "EigenTypes.h"
 #include <Eigen/Cholesky>
 #include <Eigen/SVD>
 
 namespace PHZ_GPz {
 
-    // ==============
-    // Shortcut types
-    // ==============
-
-    using Mat2d = Eigen::MatrixXd;
-    using Mat1d = Eigen::VectorXd;
-    using Vec2d = Eigen::ArrayXXd;
-    using Vec1d = Eigen::ArrayXd;
-    using Vec1i = Eigen::ArrayXi;
-
-    using MapMat2d = Eigen::Map<Eigen::MatrixXd>;
-    using MapMat1d = Eigen::Map<Eigen::VectorXd>;
-    using MapVec2d = Eigen::Map<Eigen::ArrayXXd>;
-    using MapVec1d = Eigen::Map<Eigen::ArrayXd>;
+    // =========================
+    // Inverses and determinants
+    // =========================
 
     template<typename MatrixType>
     double computeLogDeterminant(const Eigen::LLT<MatrixType>& cholesky) {

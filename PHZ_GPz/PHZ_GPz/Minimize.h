@@ -24,7 +24,8 @@
 #ifndef _PHZ_GPZ_MINIMIZE_H
 #define _PHZ_GPZ_MINIMIZE_H
 
-#include "PHZ_GPz/EigenWrapper.h"
+#include "PHZ_GPz/Utils.h"
+#include "PHZ_GPz/EigenTypes.h"
 
 #include <limits>
 
