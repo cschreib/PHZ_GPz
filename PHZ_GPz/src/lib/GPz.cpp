@@ -31,7 +31,6 @@
 #include <random>
 #include <iostream>
 #include <iomanip>
-#include <chrono>
 
 namespace PHZ_GPz {
 
@@ -2824,7 +2823,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
         throw std::runtime_error("input uncertainty has incorrect dimension");
     }
 
-    auto start = std::chrono::steady_clock::now();
+    double start = now();
 
     if (verbose_) {
         std::cout << "begin fitting with " << input.rows() << " data points" << std::endl;
@@ -2930,12 +2929,10 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
     // Compute priors of input data distribution for predictions with missing variables
     computeInputPriors_();
 
-    auto end = std::chrono::steady_clock::now();
+    double end = now();
 
     if (verbose_) {
-        std::cout << "total time required for fit: " <<
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()/1e3
-            << " seconds" << std::endl;
+        std::cout << "total time required for fit: " << end - start << " seconds" << std::endl;
     }
 }
 
@@ -3106,7 +3103,7 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
         throw std::runtime_error("model is not initialized");
     }
 
-    auto start = std::chrono::steady_clock::now();
+    double start = now();
 
     if (verbose_) {
         std::cout << "begin prediction for " << input.rows() << " data points" << std::endl;
@@ -3140,12 +3137,10 @@ GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
     // De-project output from training space to real space
     restoreOutputNormalization_(input, missing, result);
 
-    auto end = std::chrono::steady_clock::now();
+    double end = now();
 
     if (verbose_) {
-        std::cout << "total time required for prediction: " <<
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()/1e3
-            << " seconds" << std::endl;
+        std::cout << "total time required for prediction: " << end - start << " seconds" << std::endl;
     }
 
     return result;
