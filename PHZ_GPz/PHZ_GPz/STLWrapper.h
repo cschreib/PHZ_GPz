@@ -156,7 +156,9 @@ namespace PHZ_GPz {
             if (workers.empty()) {
                 // Single-threaded execution
                 double prev = now();
-                callback(ifirst);
+                if (callback) {
+                    callback(ifirst);
+                }
 
                 for (uint_t i = ifirst; i < ilast; ++i) {
                     f(i);
@@ -164,7 +166,10 @@ namespace PHZ_GPz {
                     double next = now();
                     if (next - prev > update_rate) {
                         prev = next;
-                        callback(i);
+
+                        if (callback) {
+                            callback(i);
+                        }
                     }
                 }
             } else {
