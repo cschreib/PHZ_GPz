@@ -29,8 +29,6 @@ endif()
 
 find_package(Eigen3 REQUIRED)
 
-message(STATUS ${EIGEN3_INCLUDE_DIRS})
-
 if (NOT BYPASS_ELEMENTS)
     find_package(Boost)
 endif()
