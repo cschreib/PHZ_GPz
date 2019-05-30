@@ -39,6 +39,11 @@ endif()
 
 if (NOT BYPASS_ELEMENTS)
     #===============================================================================
+    # Create configuration header
+    #===============================================================================
+    configure_file(PHZ_GPz/Config.h.in PHZ_GPz/Config.h)
+
+    #===============================================================================
     # Declare the library dependencies here
     # Example:
     #         elements_add_library(ElementsExamples src/Lib/*.cpp
@@ -48,7 +53,7 @@ if (NOT BYPASS_ELEMENTS)
     #===============================================================================
     elements_add_library(PHZ_GPz src/lib/*.cpp
                          LINK_LIBRARIES GSL Eigen3 ElementsKernel
-                         INCLUDE_DIRS GSL Eigen3 ElementsKernel
+                         INCLUDE_DIRS GSL Eigen3 ElementsKernel ${CMAKE_CURRENT_BINARY_DIR}
                          PUBLIC_HEADERS PHZ_GPz)
 
     #===============================================================================
