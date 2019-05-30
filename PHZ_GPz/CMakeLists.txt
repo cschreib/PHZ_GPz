@@ -54,7 +54,7 @@ if (NOT BYPASS_ELEMENTS)
     elements_add_library(PHZ_GPz src/lib/*.cpp
                          LINK_LIBRARIES GSL Eigen3 ElementsKernel
                          INCLUDE_DIRS GSL Eigen3 ElementsKernel ${CMAKE_CURRENT_BINARY_DIR}
-                         PUBLIC_HEADERS PHZ_GPz)
+                         PUBLIC_HEADERS PHZ_GPz ${CMAKE_CURRENT_BINARY_DIR}/PHZ_GPz)
 
     #===============================================================================
     # Declare the executables here
