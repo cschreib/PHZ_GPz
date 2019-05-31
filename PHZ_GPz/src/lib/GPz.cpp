@@ -855,15 +855,15 @@ void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output, Vec1d w
 
         // nth_element changes element order, need to work on a copy of weights
         Vec1d weightCopy = weight;
-        auto get_percentile = [](Vec1d& v, double perc) {
+        auto getPercentile = [](Vec1d& v, double perc) {
             uint_t pt = round(v.size()*perc);
             std::nth_element(begin(v), begin(v) + pt, end(v));
             return v[pt];
         };
 
-        double w16 = get_percentile(weightCopy, 0.16);
-        double w50 = get_percentile(weightCopy, 0.5);
-        double w84 = get_percentile(weightCopy, 0.84);
+        double w16 = getPercentile(weightCopy, 0.16);
+        double w50 = getPercentile(weightCopy, 0.5);
+        double w84 = getPercentile(weightCopy, 0.84);
 
         std::cout << "weights: " << w00 << " (min), " << w16 << " (16%), " << w50 << " (med), "
             << w84 << " (84%), " << w100 << " (max)" << std::endl;
@@ -939,43 +939,50 @@ void GPz::computeTrainingPCA_() {
     featurePCASigma_ /= n;
 }
 
-void GPz::initializeBasisFunctions_() {
+void GPz::initializeBasisFunctions_(const GPzHyperParameters& hints) {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
-    // std::ifstream in("init_p_ml.txt");
-    // parameters_.basisFunctionPositions.resize(m,d);
-    // char comma;
-    // for (uint_t i = 0; i < m; ++i)
-    // for (uint_t j = 0; j < d; ++j) {
-    //     if (!(in >> parameters_.basisFunctionPositions(i,j))) {
-    //         std::cerr << "could not read position for " << i << "," << j << std::endl;
-    //     }
+    const bool useHints = hints.basisFunctionPositions.rows() != 0;
 
-    //     if (j != d-1) {
-    //         in >> comma;
-    //         if (comma != ',') {
-    //             std::cerr << "unexpected character '" << comma << "'" << std::endl;
-    //         }
-    //     }
-    // }
+    if (useHints) {
+        // Load positions from hints
 
-    std::mt19937 seed(seedPositions_);
-    // Uniform distribution between -sqrt(3) and sqrt(3) has mean of zero and standard deviation of unity
-    std::uniform_real_distribution<double> uniform(-sqrt(3.0), sqrt(3.0));
+        if (hints.basisFunctionPositions.rows() != m ||
+            hints.basisFunctionPositions.cols() != d) {
+            throw std::runtime_error("incorrect dimensions for basis function position hint");
+        }
 
-    // Populate the basis function positions with random numbers
-    for (uint_t i = 0; i < m; ++i)
-    for (uint_t j = 0; j < d; ++j) {
-        parameters_.basisFunctionPositions(i,j) = uniform(seed);
-    }
+        parameters_.basisFunctionPositions = hints.basisFunctionPositions;
 
-    // Apply the PCA de-projection to mimic correlations of the data
-    parameters_.basisFunctionPositions = parameters_.basisFunctionPositions*featurePCABasisVectors_;
+        // Whiten
+        if (normalizationScheme_ == NormalizationScheme::WHITEN) {
+            for (uint_t j = 0; j < m; ++j)
+            for (uint_t k = 0; k < d; ++k) {
+                parameters_.basisFunctionPositions(j,k) =
+                    (parameters_.basisFunctionPositions(j,k) - featureMean_[k])/featureSigma_[k];
+            }
+        }
+    } else {
+        // Generate random positions
 
-    // Add data mean
-    for (uint_t i = 0; i < m; ++i) {
-        parameters_.basisFunctionPositions.row(i) += featurePCAMean_.matrix().transpose();
+        std::mt19937 seed(seedPositions_);
+        // Uniform distribution between -sqrt(3) and sqrt(3) has mean of zero and standard deviation of unity
+        std::uniform_real_distribution<double> uniform(-sqrt(3.0), sqrt(3.0));
+
+        // Populate the basis function positions with random numbers
+        for (uint_t i = 0; i < m; ++i)
+        for (uint_t j = 0; j < d; ++j) {
+            parameters_.basisFunctionPositions(i,j) = uniform(seed);
+        }
+
+        // Apply the PCA de-projection to mimic correlations of the data
+        parameters_.basisFunctionPositions = parameters_.basisFunctionPositions*featurePCABasisVectors_;
+
+        // Add data mean
+        for (uint_t i = 0; i < m; ++i) {
+            parameters_.basisFunctionPositions.row(i) += featurePCAMean_.matrix().transpose();
+        }
     }
 
     if (verbose_) {
@@ -990,19 +997,33 @@ void GPz::initializeBasisFunctions_() {
     }
 }
 
-void GPz::initializeBasisFunctionRelevances_() {
+void GPz::initializeBasisFunctionRelevances_(const GPzHyperParameters& hints) {
     const uint_t n = outputTrain_.rows();
     const uint_t m = numberBasisFunctions_;
 
-    double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
-    parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
+    const bool useHints = hints.basisFunctionLogRelevances.rows() != 0;
 
-    if (fuzzInitialValues_) {
-        // Add random component
-        std::mt19937 seed(seedFuzzing_ + 1);
-        std::uniform_real_distribution<double> uniform(-0.3, 0.3);
-        for (uint_t i = 0; i < m; ++i) {
-            parameters_.basisFunctionLogRelevances[i] += uniform(seed);
+    if (useHints) {
+        // Load relevances from hints
+
+        if (hints.basisFunctionLogRelevances.rows() != m) {
+            throw std::runtime_error("incorrect dimension for basis function relevance hints");
+        }
+
+        parameters_.basisFunctionLogRelevances = hints.basisFunctionLogRelevances;
+    } else {
+        // Estimate starting value for relevances based on data
+
+        double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
+        parameters_.basisFunctionLogRelevances.fill(-outputLogVariance);
+
+        if (fuzzInitialValues_) {
+            // Add random component
+            std::mt19937 seed(seedFuzzing_ + 1);
+            std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+            for (uint_t i = 0; i < m; ++i) {
+                parameters_.basisFunctionLogRelevances[i] += uniform(seed);
+            }
         }
     }
 
@@ -1394,57 +1415,93 @@ Vec1d GPz::initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& miss
     return gamma;
 }
 
-void GPz::initializeCovariances_() {
+void GPz::initializeCovariances_(const GPzHyperParameters& hints) {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
-    // Compute some statistics from training set
-    Vec1d gamma = initializeCovariancesMakeGamma_(inputTrain_, missingTrain_);
+    const bool useHints = !hints.basisFunctionCovariances.empty();
 
-    switch (covarianceType_) {
-        case CovarianceType::GLOBAL_LENGTH:
-        case CovarianceType::GLOBAL_DIAGONAL:
-        case CovarianceType::GLOBAL_COVARIANCE: {
-            double mean_gamma = gamma.mean();
+    if (useHints) {
+        // Load values from hints
 
-            if (fuzzInitialValues_) {
-                // Add random component
-                std::mt19937 seed(seedFuzzing_ + 2);
-                std::uniform_real_distribution<double> uniform(-0.3, 0.3);
-                mean_gamma *= exp(uniform(seed));
+        bool bad = false;
+        if (hints.basisFunctionCovariances.size() != m) {
+            bad = true;
+        } else {
+            for (uint_t j = 0; j < m; ++j) {
+                if (hints.basisFunctionCovariances[j].rows() != d ||
+                    hints.basisFunctionCovariances[j].cols() != d) {
+                    bad = true;
+                    break;
+                }
             }
-
-            for (uint_t i = 0; i < m; ++i)
-            for (uint_t j = 0; j < d; ++j)
-            for (uint_t k = 0; k < d; ++k) {
-                parameters_.basisFunctionCovariances[i](j,k) = (j == k ? mean_gamma : 0.0);
-            }
-
-            break;
         }
-        case CovarianceType::VARIABLE_LENGTH:
-        case CovarianceType::VARIABLE_DIAGONAL:
-        case CovarianceType::VARIABLE_COVARIANCE: {
-            if (fuzzInitialValues_) {
-                // Add random component
-                std::mt19937 seed(seedFuzzing_ + 2);
-                std::uniform_real_distribution<double> uniform(-0.3, 0.3);
 
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = 0; k < d; ++k) {
-                    parameters_.basisFunctionCovariances[i](j,k) =
-                        (j == k ? gamma[i]*exp(uniform(seed)) : 0.0);
-                }
-            } else {
-                for (uint_t i = 0; i < m; ++i)
-                for (uint_t j = 0; j < d; ++j)
-                for (uint_t k = 0; k < d; ++k) {
-                    parameters_.basisFunctionCovariances[i](j,k) = (j == k ? gamma[i] : 0.0);
-                }
+        if (bad) {
+            throw std::runtime_error("incorrect dimensions for basis function covariance hints");
+        }
+
+        parameters_.basisFunctionCovariances = hints.basisFunctionCovariances;
+
+        // Whiten
+        if (normalizationScheme_ == NormalizationScheme::WHITEN) {
+            for (uint_t j = 0; j < m; ++j)
+            for (uint_t k1 = 0; k1 < d; ++k1)
+            for (uint_t k2 = 0; k2 < d; ++k2) {
+                parameters_.basisFunctionCovariances[j](k1,k2) /= featureSigma_[k1];
             }
+        }
+    } else {
+        // Estimate starting values from data
 
-            break;
+        // Compute some statistics from training set
+        Vec1d gamma = initializeCovariancesMakeGamma_(inputTrain_, missingTrain_);
+
+        switch (covarianceType_) {
+            case CovarianceType::GLOBAL_LENGTH:
+            case CovarianceType::GLOBAL_DIAGONAL:
+            case CovarianceType::GLOBAL_COVARIANCE: {
+                double mean_gamma = gamma.mean();
+
+                if (fuzzInitialValues_) {
+                    // Add random component
+                    std::mt19937 seed(seedFuzzing_ + 2);
+                    std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+                    mean_gamma *= exp(uniform(seed));
+                }
+
+                for (uint_t i = 0; i < m; ++i)
+                for (uint_t j = 0; j < d; ++j)
+                for (uint_t k = 0; k < d; ++k) {
+                    parameters_.basisFunctionCovariances[i](j,k) = (j == k ? mean_gamma : 0.0);
+                }
+
+                break;
+            }
+            case CovarianceType::VARIABLE_LENGTH:
+            case CovarianceType::VARIABLE_DIAGONAL:
+            case CovarianceType::VARIABLE_COVARIANCE: {
+                if (fuzzInitialValues_) {
+                    // Add random component
+                    std::mt19937 seed(seedFuzzing_ + 2);
+                    std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+
+                    for (uint_t i = 0; i < m; ++i)
+                    for (uint_t j = 0; j < d; ++j)
+                    for (uint_t k = 0; k < d; ++k) {
+                        parameters_.basisFunctionCovariances[i](j,k) =
+                            (j == k ? gamma[i]*exp(uniform(seed)) : 0.0);
+                    }
+                } else {
+                    for (uint_t i = 0; i < m; ++i)
+                    for (uint_t j = 0; j < d; ++j)
+                    for (uint_t k = 0; k < d; ++k) {
+                        parameters_.basisFunctionCovariances[i](j,k) = (j == k ? gamma[i] : 0.0);
+                    }
+                }
+
+                break;
+            }
         }
     }
 
@@ -1458,34 +1515,68 @@ void GPz::initializeCovariances_() {
     }
 }
 
-void GPz::initializeErrors_() {
+void GPz::initializeErrors_(const GPzHyperParameters& hints) {
     const uint_t n = inputTrain_.rows();
     const uint_t m = numberBasisFunctions_;
 
-    // Initialize constant term from variance of outputs
+    // Compute variance of outputs
     double outputLogVariance = log(outputTrain_.square().sum()/(n-1.0));
-    parameters_.logUncertaintyConstant = outputLogVariance;
 
-    if (fuzzInitialValues_) {
-        // Add random component
-        std::mt19937 seed(seedFuzzing_ + 3);
-        std::uniform_real_distribution<double> uniform(-0.3, 0.3);
-        parameters_.logUncertaintyConstant /= 2.0;
-        parameters_.logUncertaintyConstant += uniform(seed);
+    if (std::isfinite(hints.logUncertaintyConstant)) {
+        // Load value from hints
+        parameters_.logUncertaintyConstant = hints.logUncertaintyConstant;
+    } else {
+        // Initialize constant term from variance of outputs
+        parameters_.logUncertaintyConstant = outputLogVariance;
+
+        if (fuzzInitialValues_) {
+            // Add random component
+            std::mt19937 seed(seedFuzzing_ + 3);
+            std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+            parameters_.logUncertaintyConstant /= 2.0;
+            parameters_.logUncertaintyConstant += uniform(seed);
+        }
     }
 
-    // Initialize basis function weights to zero
-    // (only optimized for OutputUncertaintyType::INPUT_DEPENDENT)
-    parameters_.uncertaintyBasisWeights.fill(0.0);
-    parameters_.uncertaintyBasisLogRelevances.fill(0.0);
+    const bool useWeightHints = hints.uncertaintyBasisWeights.rows() != 0;
 
-    if (fuzzInitialValues_) {
-        // Add random component
-        std::mt19937 seed(seedFuzzing_ + 4);
-        std::uniform_real_distribution<double> uniform(-0.3, 0.3);
-        for (uint_t i = 0; i < m; ++i) {
-            parameters_.uncertaintyBasisWeights[i] = exp(outputLogVariance/2.0 + uniform(seed));
+    if (useWeightHints) {
+        // Load from hints
+
+        if (hints.uncertaintyBasisWeights.rows() != m) {
+            throw std::runtime_error("incorrect dimension for uncertainty basis weights");
         }
+
+        parameters_.uncertaintyBasisWeights = hints.uncertaintyBasisWeights;
+    } else {
+        // Initialize basis function weights to zero
+        // (only varied if OutputUncertaintyType::INPUT_DEPENDENT)
+        parameters_.uncertaintyBasisWeights.fill(0.0);
+
+        if (fuzzInitialValues_) {
+            // Add random component
+            std::mt19937 seed(seedFuzzing_ + 4);
+            std::uniform_real_distribution<double> uniform(-0.3, 0.3);
+            for (uint_t i = 0; i < m; ++i) {
+                parameters_.uncertaintyBasisWeights[i] = exp(outputLogVariance/2.0 + uniform(seed));
+            }
+        }
+    }
+
+    const bool useRelevanceHints = hints.uncertaintyBasisLogRelevances.rows() != 0;
+
+    if (useRelevanceHints) {
+        // Load from hints
+
+        if (hints.uncertaintyBasisLogRelevances.rows() != m) {
+            throw std::runtime_error("incorrect dimension for uncertainty basis relevances");
+        }
+
+        parameters_.uncertaintyBasisLogRelevances = hints.uncertaintyBasisLogRelevances;
+    } else {
+        // Initialize basis function log relevance to zero
+        // (only varied if OutputUncertaintyType::INPUT_DEPENDENT)
+        parameters_.uncertaintyBasisLogRelevances.fill(0.0);
     }
 
     if (verbose_) {
@@ -1494,16 +1585,16 @@ void GPz::initializeErrors_() {
     }
 }
 
-void GPz::initializeFit_() {
+void GPz::initializeFit_(const GPzHyperParameters& hints) {
     // Pre-compute some things
     computeTrainingPCA_();
     buildLinearPredictorCache_();
 
     // Set initial values for hyper-parameters
-    initializeBasisFunctions_();
-    initializeBasisFunctionRelevances_();
-    initializeCovariances_();
-    initializeErrors_();
+    initializeBasisFunctions_(hints);
+    initializeBasisFunctionRelevances_(hints);
+    initializeCovariances_(hints);
+    initializeErrors_(hints);
 
     // TODO: we could free the memory used by the predictor cache here,
     // if it is not used by anything else but to initialize the covariances.
@@ -2868,7 +2959,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 // Fit/training function
 // =====================
 
-void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
+void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const GPzHyperParameters& hints) {
     // Check inputs are consistent
     if (!checkErrorDimensions_(input, inputError)) {
         throw std::runtime_error("input uncertainty has incorrect dimension");
@@ -2892,7 +2983,7 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
     initializeInputs_(std::move(input), std::move(inputError), std::move(output), std::move(weight));
 
     // Setup the fit, initialize arrays, etc.
-    initializeFit_();
+    initializeFit_(hints);
 
     // Build vector with initial values for hyper-parameter
     Vec1d initialValues = makeParameterArray_(parameters_);

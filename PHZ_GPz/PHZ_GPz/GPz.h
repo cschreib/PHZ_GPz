@@ -254,12 +254,12 @@ struct GPzOutput {
  *
  */
 struct GPzHyperParameters {
-    Mat2d              basisFunctionPositions;        // GPz MatLab: P
-    Mat1d              basisFunctionLogRelevances;    // GPz MatLab: lnAlpha
-    std::vector<Mat2d> basisFunctionCovariances;      // GPz MatLab: Gamma
-    double             logUncertaintyConstant = 0.0;  // GPz MatLab: b
-    Mat1d              uncertaintyBasisWeights;       // GPz MatLab: v
-    Mat1d              uncertaintyBasisLogRelevances; // GPz MatLab: lnTau
+    Mat2d              basisFunctionPositions;         // GPz MatLab: P
+    Mat1d              basisFunctionLogRelevances;     // GPz MatLab: lnAlpha
+    std::vector<Mat2d> basisFunctionCovariances;       // GPz MatLab: Gamma
+    double             logUncertaintyConstant = dnan;  // GPz MatLab: b
+    Mat1d              uncertaintyBasisWeights;        // GPz MatLab: v
+    Mat1d              uncertaintyBasisLogRelevances;  // GPz MatLab: lnTau
 };
 
 /**
@@ -517,9 +517,9 @@ class GPz {
 
     void buildLinearPredictorCache_();
 
-    void initializeBasisFunctions_();
+    void initializeBasisFunctions_(const GPzHyperParameters& hints);
 
-    void initializeBasisFunctionRelevances_();
+    void initializeBasisFunctionRelevances_(const GPzHyperParameters& hints);
 
     void buildMissingCache_(const Mat2d& input) const;
 
@@ -542,11 +542,11 @@ class GPz {
 
     Vec1d initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& missing) const;
 
-    void initializeCovariances_();
+    void initializeCovariances_(const GPzHyperParameters& hints);
 
-    void initializeErrors_();
+    void initializeErrors_(const GPzHyperParameters& hints);
 
-    void initializeFit_();
+    void initializeFit_(const GPzHyperParameters& hints);
 
     bool checkInputDimensions_(const Mat2d& input) const;
 
@@ -626,6 +626,10 @@ public:
      * \param inputError 2D array of feature uncertainties associated to the input feature values
      *                   (dimensions: N_element x N_feature; or empty if there are no uncertainties)
      * \param output 1D array of output values to train against (dimensions: N_element)
+     * \param hints Structure containing starting values for the model hyper-parameters. If
+     *              unspecified, the starting values will be computed automatically from the data.
+     *              Likewise, if individual fields of the structure are unspecified (empty), the
+     *              corresponding starting values will be computed automatically.
      * \param weight 1D array of weights to use in training (dimensions: N_element; or empty to let
      *               GPz determine the weights, see setWeightingScheme())
      *
@@ -643,7 +647,8 @@ public:
      *
      * Once the training is complete, you may use the getModel() and predict() functions.
      */
-    void fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight);
+    void fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight,
+        const GPzHyperParameters& hints = GPzHyperParameters{});
 
     /**@}*/
 
