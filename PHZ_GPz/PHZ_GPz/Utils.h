@@ -25,10 +25,12 @@
 #define _PHZ_GPZ_UTILS_H
 
 #include <cstddef>
+#include <limits>
 
 namespace PHZ_GPz {
 
     using uint_t = std::size_t;
+    static const double dnan = std::numeric_limits<double>::quiet_NaN();
 
 }  // namespace PHZ_GPz
 
