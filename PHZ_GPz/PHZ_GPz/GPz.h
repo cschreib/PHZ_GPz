@@ -570,6 +570,8 @@ class GPz {
 
     bool checkInputDimensions_(const Mat2d& input) const;
 
+    bool checkOutputDimensions_(const Mat2d& input, const Vec1d& output) const;
+
     bool checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const;
 
     // =======================

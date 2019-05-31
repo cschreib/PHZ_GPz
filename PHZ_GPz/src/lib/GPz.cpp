@@ -674,6 +674,10 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output,
         }
     }
 
+    if (valid.empty()) {
+        throw std::runtime_error("no usable training data found after removing invalid inputs");
+    }
+
     if (valid.size() != n) {
         if (verbose_) {
             std::cout << "removing " << n - valid.size() << " invalid inputs" << std::endl;
@@ -1632,6 +1636,10 @@ void GPz::initializeFit_(const GPzHints& hints) {
 
 bool GPz::checkInputDimensions_(const Mat2d& input) const {
     return static_cast<uint_t>(input.cols()) == numberFeatures_;
+}
+
+bool GPz::checkOutputDimensions_(const Mat2d& input, const Vec1d& output) const {
+    return output.rows() == input.rows();
 }
 
 bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const {
@@ -2987,8 +2995,17 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 
 void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const GPzHints& hints) {
     // Check inputs are consistent
+    if (input.rows() == 0) {
+        throw std::runtime_error("cannot fit an empty training set");
+    }
     if (!checkErrorDimensions_(input, inputError)) {
         throw std::runtime_error("input uncertainty has incorrect dimension");
+    }
+    if (!checkOutputDimensions_(input, output)) {
+        throw std::runtime_error("output has incorrect dimension");
+    }
+    if (weight.rows() != 0 && !checkOutputDimensions_(input, weight)) {
+        throw std::runtime_error("output weight has incorrect dimension");
     }
 
     double start = now();
