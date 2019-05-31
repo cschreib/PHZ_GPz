@@ -288,6 +288,26 @@ struct GPzModel {
 };
 
 /**
+ * @struct GPzHints
+ * @brief Store a set of hints for the initial values of hyperparameters of a GPz run
+ *
+ */
+struct GPzHints {
+    GPzHints() = default;
+    GPzHints(const GPzHints&) = default;
+    GPzHints& operator=(const GPzHints&) = default;
+
+    GPzHints(const GPzModel& model);
+
+    Mat2d              basisFunctionPositions;
+    Mat1d              basisFunctionLogRelevances;
+    std::vector<Mat2d> basisFunctionCovariances;
+    double             logUncertaintyConstant = dnan;
+    Mat1d              uncertaintyBasisWeights;
+    Mat1d              uncertaintyBasisLogRelevances;
+};
+
+/**
  * @struct GPzModel
  * @brief Store the optimization toggles for the GPz algorithm
  *
@@ -517,9 +537,9 @@ class GPz {
 
     void buildLinearPredictorCache_();
 
-    void initializeBasisFunctions_(const GPzHyperParameters& hints);
+    void initializeBasisFunctions_(const GPzHints& hints);
 
-    void initializeBasisFunctionRelevances_(const GPzHyperParameters& hints);
+    void initializeBasisFunctionRelevances_(const GPzHints& hints);
 
     void buildMissingCache_(const Mat2d& input) const;
 
@@ -542,11 +562,11 @@ class GPz {
 
     Vec1d initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& missing) const;
 
-    void initializeCovariances_(const GPzHyperParameters& hints);
+    void initializeCovariances_(const GPzHints& hints);
 
-    void initializeErrors_(const GPzHyperParameters& hints);
+    void initializeErrors_(const GPzHints& hints);
 
-    void initializeFit_(const GPzHyperParameters& hints);
+    void initializeFit_(const GPzHints& hints);
 
     bool checkInputDimensions_(const Mat2d& input) const;
 
@@ -629,7 +649,9 @@ public:
      * \param hints Structure containing starting values for the model hyper-parameters. If
      *              unspecified, the starting values will be computed automatically from the data.
      *              Likewise, if individual fields of the structure are unspecified (empty), the
-     *              corresponding starting values will be computed automatically.
+     *              corresponding starting values will be computed automatically. It is also
+     *              possible to construct the hints from a GPzModel obtained from a previous GPz
+     *              run.
      * \param weight 1D array of weights to use in training (dimensions: N_element; or empty to let
      *               GPz determine the weights, see setWeightingScheme())
      *
@@ -648,7 +670,7 @@ public:
      * Once the training is complete, you may use the getModel() and predict() functions.
      */
     void fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight,
-        const GPzHyperParameters& hints = GPzHyperParameters{});
+        const GPzHints& hints = GPzHints{});
 
     /**@}*/
 

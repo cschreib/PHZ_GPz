@@ -545,7 +545,7 @@ BOOST_AUTO_TEST_CASE( train_1D ) {
 
             Mat2d errors;
             Vec1d weights;
-            GPzHyperParameters hints;
+            GPzHints hints;
             if (setup == 8) {
                 errors.setZero(input.rows(), 1);
             }

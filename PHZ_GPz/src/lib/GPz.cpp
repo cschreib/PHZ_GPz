@@ -34,6 +34,32 @@
 
 namespace PHZ_GPz {
 
+GPzHints::GPzHints(const GPzModel& model) {
+    basisFunctionPositions        = model.parameters.basisFunctionPositions;
+    basisFunctionLogRelevances    = model.parameters.basisFunctionLogRelevances;
+    basisFunctionCovariances      = model.parameters.basisFunctionCovariances;
+    logUncertaintyConstant        = model.parameters.logUncertaintyConstant;
+    uncertaintyBasisWeights       = model.parameters.uncertaintyBasisWeights;
+    uncertaintyBasisLogRelevances = model.parameters.uncertaintyBasisLogRelevances;
+
+    const uint_t m = basisFunctionPositions.rows();
+    const uint_t d = basisFunctionPositions.cols();
+
+    if (model.normalizationScheme == NormalizationScheme::WHITEN) {
+        // De-whiten the model parameters
+        for (uint_t j = 0; j < m; ++j)
+        for (uint_t k = 0; k < d; ++k) {
+            basisFunctionPositions(j,k) = basisFunctionPositions(j,k)*model.featureSigma[k]
+                + model.featureMean[k];
+        }
+        for (uint_t j = 0; j < m; ++j)
+        for (uint_t k1 = 0; k1 < d; ++k1)
+        for (uint_t k2 = 0; k2 < d; ++k2) {
+            basisFunctionCovariances[j](k1,k2) *= model.featureSigma[k1];
+        }
+    }
+}
+
 // ====================================
 // Internal functions: hyper-parameters
 // ====================================
@@ -939,7 +965,7 @@ void GPz::computeTrainingPCA_() {
     featurePCASigma_ /= n;
 }
 
-void GPz::initializeBasisFunctions_(const GPzHyperParameters& hints) {
+void GPz::initializeBasisFunctions_(const GPzHints& hints) {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
@@ -997,7 +1023,7 @@ void GPz::initializeBasisFunctions_(const GPzHyperParameters& hints) {
     }
 }
 
-void GPz::initializeBasisFunctionRelevances_(const GPzHyperParameters& hints) {
+void GPz::initializeBasisFunctionRelevances_(const GPzHints& hints) {
     const uint_t n = outputTrain_.rows();
     const uint_t m = numberBasisFunctions_;
 
@@ -1415,7 +1441,7 @@ Vec1d GPz::initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& miss
     return gamma;
 }
 
-void GPz::initializeCovariances_(const GPzHyperParameters& hints) {
+void GPz::initializeCovariances_(const GPzHints& hints) {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
@@ -1515,7 +1541,7 @@ void GPz::initializeCovariances_(const GPzHyperParameters& hints) {
     }
 }
 
-void GPz::initializeErrors_(const GPzHyperParameters& hints) {
+void GPz::initializeErrors_(const GPzHints& hints) {
     const uint_t n = inputTrain_.rows();
     const uint_t m = numberBasisFunctions_;
 
@@ -1585,7 +1611,7 @@ void GPz::initializeErrors_(const GPzHyperParameters& hints) {
     }
 }
 
-void GPz::initializeFit_(const GPzHyperParameters& hints) {
+void GPz::initializeFit_(const GPzHints& hints) {
     // Pre-compute some things
     computeTrainingPCA_();
     buildLinearPredictorCache_();
@@ -2959,7 +2985,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 // Fit/training function
 // =====================
 
-void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const GPzHyperParameters& hints) {
+void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const GPzHints& hints) {
     // Check inputs are consistent
     if (!checkErrorDimensions_(input, inputError)) {
         throw std::runtime_error("input uncertainty has incorrect dimension");
