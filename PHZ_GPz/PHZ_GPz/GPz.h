@@ -315,24 +315,47 @@ struct GPzHints {
 struct GPzOptimizations {
     bool specializeForSingleFeature = true;
     bool specializeForDiagCovariance = true;
+    double variableCovarianceMinPio = 1e-6;
     bool enableMultithreading = false;
     uint_t maxThreads = 1;
 };
 
 /** \var PHZ_GPz::GPzOptimizations::specializeForSingleFeature
- * @brief Enable dedicated code for runs with a single feature.
+ * @brief Enable dedicated code for runs with a single feature
+ *
+ * This is not an approximation and will still return exact results.
  */
 
 /** \var PHZ_GPz::GPzOptimizations::specializeForDiagCovariance
- * @brief Enable dedicated code for runs with diagonal covariances.
+ * @brief Enable dedicated code for runs with diagonal covariances
+ *
+ * This is not an approximation and will still return exact results.
+ */
+
+/** \var PHZ_GPz::GPzOptimizations::variableCovarianceMinPio
+ * @brief Relative weight threshold when summing basis functions.
+ *
+ * Computing predicted uncertainties with missing data and a full variable covariance
+ * (CovarianceType::VARIABLE_COVARIANCE) is a very costly operation since it involves a sum computed
+ * with three nested loops over the basis functions (complexity O(m^3) for m basis functions). To
+ * reduce the computation time, this sum can be approximated by dropping the basis functions which
+ * we know a priori are not going to contribute much at a given location in the input space. The
+ * value of this variable controls the weight threshold of a basis function, relative to the
+ * maximum weight, below which a basis function is ignored.
+ *
+ * Set to zero to disable the optimization. Note that this is an approximation, and the relative
+ * accuracy of this approximation is typically of the order of the adopted threshold (although this
+ * may depend on the specific data set; you are advised to check for at least a few cases that the
+ * approximation is correct when compared to runs with the approximation is disabled).
+ * ).
  */
 
 /** \var PHZ_GPz::GPzOptimizations::enableMultithreading
- * @brief Enable parallel execution in some parts of the code.
+ * @brief Enable parallel execution in some parts of the code
  */
 
 /** \var PHZ_GPz::GPzOptimizations::maxThreads
- * @brief Maximum number of concurrent threads allowed at a given time.
+ * @brief Maximum number of concurrent threads allowed at a given time
  */
 
 

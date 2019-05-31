@@ -2811,6 +2811,11 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         Mat1d DeltaSolved;
         Mat2d Sij;
 
+        double PioThreshold = 0.0;
+        if (std::isfinite(optimizations_.variableCovarianceMinPio)) {
+            PioThreshold = Pio.maxCoeff()*optimizations_.variableCovarianceMinPio;
+        }
+
         for (uint_t i = 0; i < m; ++i)
         for (uint_t j = 0; j <= i; ++j) {
             iCij = noMissingCache_->invCovariancesObserved[i] + noMissingCache_->invCovariancesObserved[j];
@@ -2823,33 +2828,37 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
 
             cij = svd.solve(cij);
 
-            Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i).transpose();
-            Sij = noMissingCache_->covariancesObserved[i] + Psi_hat[j];
-            svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
+            if (Pio[j] >= PioThreshold) {
+                Delta = filledInput.col(j) - parameters_.basisFunctionPositions.row(i).transpose();
+                Sij = noMissingCache_->covariancesObserved[i] + Psi_hat[j];
+                svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-            DeltaSolved = svd.solve(Delta);
-            double N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
-            basis[i] += N*Pio[j];
+                DeltaSolved = svd.solve(Delta);
+                double N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
+                basis[i] += N*Pio[j];
+            }
 
-            if (i != j) {
+            if (i != j && Pio[i] >= PioThreshold) {
                 Delta = filledInput.col(i) - parameters_.basisFunctionPositions.row(j).transpose();
                 Sij = noMissingCache_->covariancesObserved[j] + Psi_hat[i];
                 svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
                 DeltaSolved = svd.solve(Delta);
-                N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
+                double N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
                 basis[j] += N*Pio[i];
             }
 
             if (predictVariance_) {
                 double EcCij = 0.0;
                 for (uint_t l = 0; l < m; ++l) {
+                    if (Pio[l] < PioThreshold) continue;
+
                     Delta = filledInput.col(l) - cij;
                     Sij = Cij + Psi_hat[l];
                     svd.compute(Sij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
                     DeltaSolved = svd.solve(Delta);
-                    N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
+                    double N = exp(-0.5*DeltaSolved.transpose()*Delta - 0.5*computeLogDeterminant(svd));
 
                     EcCij += N*Pio[l];
                 }
