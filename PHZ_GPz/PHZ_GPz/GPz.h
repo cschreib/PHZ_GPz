@@ -486,7 +486,12 @@ class GPz {
     // Prediction cached variables
     // ===========================
 
-    mutable Mat2d lnZ; // GPz MatLab: lnZij
+    mutable Mat2d lnZ_; // GPz MatLab: lnZij
+    mutable bool cachedAllMissing_ = false;
+    mutable double cachedAllMissingValue_ = dnan;
+    mutable double cachedAllMissingVarianceTrainDensity_ = dnan;
+    mutable double cachedAllMissingVarianceTrainNoise_ = dnan;
+    mutable double cachedAllMissingVarianceInputNoise_ = dnan;
 
     // ====================================
     // Internal functions: hyper-parameters

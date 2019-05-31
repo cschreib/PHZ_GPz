@@ -2589,7 +2589,7 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
                     det *= Cij;
                 }
 
-                double ZijNxc = exp(lnZ(i,j) - 0.5*lnNxc)/sqrt(det);
+                double ZijNxc = exp(lnZ_(i,j) - 0.5*lnNxc)/sqrt(det);
 
                 double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
                 varianceTrainDensity += coef*modelInvCovariance_(i,j);
@@ -2625,7 +2625,7 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
 
                 DeltaSolved = svd.solve(Delta);
                 double lnNxc = DeltaSolved.transpose()*Delta + computeLogDeterminant(svd);
-                double ZijNxc = exp(lnZ(i,j) - 0.5*lnNxc);
+                double ZijNxc = exp(lnZ_(i,j) - 0.5*lnNxc);
 
                 double coef = (i == j ? 1.0 : 2.0)*ZijNxc;
                 varianceTrainDensity += coef*modelInvCovariance_(i,j);
@@ -2650,6 +2650,15 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
     const bool noError = inputError.rows() == 0;
     const bool diagonalCovariance = covarianceType_ == CovarianceType::VARIABLE_DIAGONAL ||
                                     covarianceType_ == CovarianceType::GLOBAL_DIAGONAL;
+
+    // Handle cases with all missing values and cache it
+    if (element.countMissing == d && cachedAllMissing_) {
+        value = cachedAllMissingValue_;
+        varianceTrainDensity = cachedAllMissingVarianceTrainDensity_;
+        varianceTrainNoise = cachedAllMissingVarianceTrainNoise_;
+        varianceInputNoise = cachedAllMissingVarianceInputNoise_;
+        return;
+    }
 
     Mat1d Pio(m); // GPzMatLab: Ex & Pio (combined)
     Mat1d No(m); // GPzMatLab: No
@@ -2785,7 +2794,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
 
                 EcCij *= exp(-0.5*lnN)/sqrt(det);
 
-                double Pij = exp(lnZ(i,j))*EcCij;
+                double Pij = exp(lnZ_(i,j))*EcCij;
 
                 double coef = (i == j ? 1.0 : 2.0)*Pij;
                 varianceTrainDensity += coef*modelInvCovariance_(i,j);
@@ -2845,7 +2854,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
                     EcCij += N*Pio[l];
                 }
 
-                double Pij = exp(lnZ(i,j))*EcCij;
+                double Pij = exp(lnZ_(i,j))*EcCij;
 
                 double coef = (i == j ? 1.0 : 2.0)*Pij;
                 varianceTrainDensity += coef*modelInvCovariance_(i,j);
@@ -2866,6 +2875,15 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
         VlnS -= square(logError - parameters_.logUncertaintyConstant);
         varianceTrainNoise = exp(logError)*(1.0 + 0.5*VlnS); // GPzMatLab: beta_i
     }
+
+    if (element.countMissing == d && !cachedAllMissing_) {
+        cachedAllMissingValue_ = value;
+        cachedAllMissingVarianceTrainDensity_ = varianceTrainDensity;
+        cachedAllMissingVarianceTrainNoise_ = varianceTrainNoise;
+        cachedAllMissingVarianceInputNoise_ = varianceInputNoise;
+        cachedAllMissing_ = true;
+        return;
+    }
 }
 
 GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
@@ -2880,7 +2898,8 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
     result.varianceInputNoise.setZero(n);
 
     // Compute cached variables
-    lnZ.setZero(m,m); {
+    cachedAllMissing_ = false;
+    lnZ_.setZero(m,m); {
         for (uint_t i = 0; i < m; ++i)
         for (uint_t j = 0; j <= i; ++j) {
             Mat2d Sij = noMissingCache_->covariancesObserved[i]
@@ -2891,7 +2910,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
             Mat1d Delta = parameters_.basisFunctionPositions.row(i)
                         - parameters_.basisFunctionPositions.row(j);
 
-            lnZ(i,j) = +0.5*noMissingCache_->covariancesObservedLogDeterminant[i]
+            lnZ_(i,j) = +0.5*noMissingCache_->covariancesObservedLogDeterminant[i]
                 +0.5*noMissingCache_->covariancesObservedLogDeterminant[j]
                 -0.5*svd.solve(Delta).transpose()*Delta
                 -0.5*computeLogDeterminant(svd);
