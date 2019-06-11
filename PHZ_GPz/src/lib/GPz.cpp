@@ -978,8 +978,8 @@ void GPz::initializeBasisFunctions_(const GPzHints& hints) {
     if (useHints) {
         // Load positions from hints
 
-        if (hints.basisFunctionPositions.rows() != m ||
-            hints.basisFunctionPositions.cols() != d) {
+        if (uint_t(hints.basisFunctionPositions.rows()) != m ||
+            uint_t(hints.basisFunctionPositions.cols()) != d) {
             throw std::runtime_error("incorrect dimensions for basis function position hint");
         }
 
@@ -1036,7 +1036,7 @@ void GPz::initializeBasisFunctionRelevances_(const GPzHints& hints) {
     if (useHints) {
         // Load relevances from hints
 
-        if (hints.basisFunctionLogRelevances.rows() != m) {
+        if (uint_t(hints.basisFunctionLogRelevances.rows()) != m) {
             throw std::runtime_error("incorrect dimension for basis function relevance hints");
         }
 
@@ -1459,8 +1459,8 @@ void GPz::initializeCovariances_(const GPzHints& hints) {
             bad = true;
         } else {
             for (uint_t j = 0; j < m; ++j) {
-                if (hints.basisFunctionCovariances[j].rows() != d ||
-                    hints.basisFunctionCovariances[j].cols() != d) {
+                if (uint_t(hints.basisFunctionCovariances[j].rows()) != d ||
+                    uint_t(hints.basisFunctionCovariances[j].cols()) != d) {
                     bad = true;
                     break;
                 }
@@ -1573,7 +1573,7 @@ void GPz::initializeErrors_(const GPzHints& hints) {
     if (useWeightHints) {
         // Load from hints
 
-        if (hints.uncertaintyBasisWeights.rows() != m) {
+        if (uint_t(hints.uncertaintyBasisWeights.rows()) != m) {
             throw std::runtime_error("incorrect dimension for uncertainty basis weights");
         }
 
@@ -1598,7 +1598,7 @@ void GPz::initializeErrors_(const GPzHints& hints) {
     if (useRelevanceHints) {
         // Load from hints
 
-        if (hints.uncertaintyBasisLogRelevances.rows() != m) {
+        if (uint_t(hints.uncertaintyBasisLogRelevances.rows()) != m) {
             throw std::runtime_error("incorrect dimension for uncertainty basis relevances");
         }
 
