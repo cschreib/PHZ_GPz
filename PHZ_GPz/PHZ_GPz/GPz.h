@@ -1024,7 +1024,7 @@ public:
      *
      * See setFuzzingSeed().
      */
-    uint_t getFuzzingSeed(uint_t seed);
+    uint_t getFuzzingSeed();
 
     /**
      * @brief Set the basis function covariance type

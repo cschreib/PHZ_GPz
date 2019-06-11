@@ -3481,7 +3481,7 @@ void GPz::setFuzzingSeed(uint_t seed) {
     seedFuzzing_ = seed;
 }
 
-uint_t GPz::getFuzzingSeed(uint_t seed) {
+uint_t GPz::getFuzzingSeed() {
     return seedFuzzing_;
 }
 
