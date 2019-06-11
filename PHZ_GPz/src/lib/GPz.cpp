@@ -1993,7 +1993,7 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
-    if (funcs.rows() == 0) {
+    if (funcs.rows() != n || funcs.cols() != m) {
         funcs.resize(n,m);
     }
 
