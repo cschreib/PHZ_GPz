@@ -48,7 +48,11 @@ namespace Minimize {
         Vec1d  parameters;
         Vec1d  parametersBestValid;
         double metric = std::numeric_limits<double>::quiet_NaN();
+        double metricValid = std::numeric_limits<double>::quiet_NaN();
+        double metricBestValid = std::numeric_limits<double>::quiet_NaN();
+        double metricValidBestValid = std::numeric_limits<double>::quiet_NaN();
         uint_t numberIterations = 0;
+        uint_t numberIterationsBestValid = 0;
     };
 
     enum class FunctionOutput {

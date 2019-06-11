@@ -3128,9 +3128,15 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const G
     if (inputValid_.rows() == 0) {
         // No validation set, use the latest best model
         loadParametersArray_(result.parameters, parameters_);
+        bestLogLikelihood_ = -result.metric;
+        bestLogLikelihoodValid_ = -result.metricValid;
+        bestNumberIterations_ = result.numberIterations;
     } else {
         // Validation set provided, use the latest best model from the validation
         loadParametersArray_(result.parametersBestValid, parameters_);
+        bestLogLikelihood_ = -result.metricBestValid;
+        bestLogLikelihoodValid_ = -result.metricValidBestValid;
+        bestNumberIterations_ = result.numberIterationsBestValid;
     }
 
     // Update model to best parameter set (and likelihood, for diagnostic)
@@ -3147,6 +3153,34 @@ void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const G
     if (verbose_) {
         std::cout << "total time required for fit: " << end - start << " seconds" << std::endl;
     }
+}
+
+// ===================
+// Fit results getters
+// ===================
+
+double GPz::getTrainingLogLikelihood() const {
+    if (bestNumberIterations_ == 0) {
+        throw std::runtime_error("cannot call getTrainingLogLikelihood() before fit()");
+    }
+
+    return bestLogLikelihood_;
+}
+
+double GPz::getValidationLogLikelihood() const {
+    if (bestNumberIterations_ == 0) {
+        throw std::runtime_error("cannot call getTrainingLogLikelihood() before fit()");
+    }
+
+    return bestLogLikelihoodValid_;
+}
+
+uint_t GPz::getNumberOfIterations() const {
+    if (bestNumberIterations_ == 0) {
+        throw std::runtime_error("cannot call getTrainingLogLikelihood() before fit()");
+    }
+
+    return bestNumberIterations_;
 }
 
 // ========================

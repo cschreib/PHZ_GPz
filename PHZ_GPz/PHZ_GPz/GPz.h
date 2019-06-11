@@ -493,6 +493,10 @@ class GPz {
     double logLikelihood_ = 0.0;
     double logLikelihoodValid_ = 0.0;
 
+    double bestLogLikelihood_ = 0.0;
+    double bestLogLikelihoodValid_ = 0.0;
+    uint_t bestNumberIterations_ = 0.0;
+
     // =============================
     // Minimization cached variables
     // =============================
@@ -701,6 +705,41 @@ public:
      */
     void fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight,
         const GPzHints& hints = GPzHints{});
+
+    /**@}*/
+
+    // ===================
+    // Fit results getters
+    // ===================
+
+    /**
+     * @name Getters to access the metrics of the best fit result
+     */
+    /**@{*/
+
+    /**
+     * @brief Return the final log-likelihood of the training set after fitting
+     *
+     * \pre A model must have been fitted by this class instance by a call to fit().
+     * If not, the function will throw an exception.
+     */
+    double getTrainingLogLikelihood() const;
+
+    /**
+     * @brief Return the final log-likelihood of the validation set after fitting
+     *
+     * \pre A model must have been fitted by this class instance by a call to fit().
+     * If not, the function will throw an exception.
+     */
+    double getValidationLogLikelihood() const;
+
+    /**
+     * @brief Return the number of iterations used to reach the best fit model
+     *
+     * \pre A model must have been fitted by this class instance by a call to fit().
+     * If not, the function will throw an exception.
+     */
+    uint_t getNumberOfIterations() const;
 
     /**@}*/
 

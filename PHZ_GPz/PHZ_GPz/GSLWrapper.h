@@ -100,7 +100,12 @@ namespace Minimize {
 
         gsl_vector* x = nullptr;
         gsl_multimin_fdfminimizer* m = nullptr;
-        double bestValid = std::numeric_limits<double>::infinity();
+
+        // Setup validation
+        if (options.hasValidation) {
+            result.metricValidBestValid = std::numeric_limits<double>::infinity();
+        }
+
         uint_t noValidationImprovementAttempts = 0;
 
         try {
@@ -142,6 +147,8 @@ namespace Minimize {
                     break;
                 }
 
+                result.metric = m->f;
+
                 status = gsl_multimin_test_gradient(m->gradient, options.gradientTolerance);
                 if (status == GSL_SUCCESS) {
                     // Gradient small enough, local minimum found
@@ -155,8 +162,10 @@ namespace Minimize {
                     }
 
                     currentValid = function(xEigen, FunctionOutput::METRIC_VALID)[0];
-                    if (currentValid < bestValid) {
-                        bestValid = currentValid;
+                    if (currentValid < result.metricValidBestValid) {
+                        result.metricBestValid = result.metric;
+                        result.metricValidBestValid = currentValid;
+                        result.numberIterationsBestValid = result.numberIterations;
                         noValidationImprovementAttempts = 0;
 
                         for (uint_t i = 0; i < n; ++i) {
@@ -177,7 +186,7 @@ namespace Minimize {
                         << ", metric train: " << m->f;
                     if (options.hasValidation) {
                         std::cout << ", metric valid: " << currentValid
-                            << " (best: " << bestValid << ")";
+                            << " (best: " << result.metricValidBestValid << ")";
                     }
 
                     if (options.verboseSingleLine) {
@@ -193,7 +202,7 @@ namespace Minimize {
                     << ", metric train: " << m->f;
                 if (options.hasValidation) {
                     std::cout << ", metric valid: " << currentValid
-                        << " (best: " << bestValid << ")";
+                        << " (best: " << result.metricValidBestValid << ")";
                 }
                 std::cout << std::endl;
             }
@@ -202,8 +211,6 @@ namespace Minimize {
             for (uint_t i = 0; i < n; ++i) {
                 result.parameters[i] = gsl_vector_get(m->x, i);
             }
-
-            result.metric = m->f;
 
             // Cleanup
             gsl_multimin_fdfminimizer_free(m);

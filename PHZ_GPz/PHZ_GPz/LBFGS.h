@@ -404,7 +404,10 @@ namespace Minimize {
         const uint_t n = initial.size();
 
         // Setup validation
-        double bestValid = std::numeric_limits<double>::infinity();
+        if (options.hasValidation) {
+            result.metricValidBestValid = std::numeric_limits<double>::infinity();
+        }
+
         double currentValid = 0.0;
         uint_t noValidationImprovementAttempts = 0;
 
@@ -582,8 +585,10 @@ namespace Minimize {
 
             if (options.hasValidation) {
                 currentValid = function(x, FunctionOutput::METRIC_VALID)[0];
-                if (currentValid < bestValid) {
-                    bestValid = currentValid;
+                if (currentValid < result.metricValidBestValid) {
+                    result.metricBestValid = metric;
+                    result.metricValidBestValid = currentValid;
+                    result.numberIterationsBestValid = result.numberIterations;
                     noValidationImprovementAttempts = 0;
                     result.parametersBestValid = x;
                 } else {
@@ -603,7 +608,7 @@ namespace Minimize {
                     << ", metric train: " << metric;
                 if (options.hasValidation) {
                     std::cout << ", metric valid: " << currentValid
-                        << " (best: " << bestValid << ")";
+                        << " (best: " << result.metricValidBestValid << ")";
                 }
 
                 if (options.verboseSingleLine) {
@@ -619,7 +624,7 @@ namespace Minimize {
                 << ", metric train: " << metric;
             if (options.hasValidation) {
                 std::cout << ", metric valid: " << currentValid
-                    << " (best: " << bestValid << ")";
+                    << " (best: " << result.metricValidBestValid << ")";
             }
             std::cout << std::endl;
             if (result.success) {
@@ -632,6 +637,9 @@ namespace Minimize {
         // Write output
         result.parameters = x;
         result.metric = metric;
+        if (options.hasValidation) {
+            result.metricValid = currentValid;
+        }
 
         return result;
     }
