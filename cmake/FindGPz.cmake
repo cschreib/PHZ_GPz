@@ -53,6 +53,9 @@ if (GPZ_INCLUDE_DIR)
     # in cache already
     _gpz_check_version()
     set(GPZ_FOUND ${GPZ_VERSION_OK})
+    set(GPZ_INCLUDE_DIRS ${GPZ_INCLUDE_DIR})
+    list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+
 
 else()
 
