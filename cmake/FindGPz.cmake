@@ -26,7 +26,6 @@ if (NOT GPz_FIND_VERSION)
 endif()
 
 macro(_gpz_check_version)
-    message(STATUS ${GPZ_INCLUDE_DIR})
     file(READ "${GPZ_INCLUDE_DIR}/PHZ_GPz/Config.h" _gpz_version_header)
 
     string(REGEX MATCH "define[ \t]+GPZ_WORLD_VERSION[ \t]+([0-9]+)" _gpz_world_version_match "${_gpz_version_header}")
@@ -72,6 +71,13 @@ else()
         )
     endif()
 
+    if (NOT GPZ_LIBRARIES)
+        find_library(GPZ_LIBRARIES GPz
+            HINTS ${GPZ_ROOT_DIR}
+            PATH_SUFFIXES lib
+        )
+    endif()
+
     if(GPZ_INCLUDE_DIR)
         _gpz_check_version()
     endif()
@@ -83,7 +89,7 @@ else()
 
     include(FindPackageHandleStandardArgs)
     find_package_handle_standard_args(GPz DEFAULT_MSG
-        GPZ_INCLUDE_DIR GPZ_INCLUDE_DIRS GPZ_VERSION_OK)
+        GPZ_INCLUDE_DIR GPZ_INCLUDE_DIRS GPZ_LIBRARIES GPZ_VERSION_OK)
 
     mark_as_advanced(GPZ_INCLUDE_DIR GPZ_INCLUDE_DIRS)
 
