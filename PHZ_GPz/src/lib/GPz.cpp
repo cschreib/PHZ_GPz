@@ -978,8 +978,8 @@ void GPz::initializeBasisFunctions_(const GPzHints& hints) {
     if (useHints) {
         // Load positions from hints
 
-        if (uint_t(hints.basisFunctionPositions.rows()) != m ||
-            uint_t(hints.basisFunctionPositions.cols()) != d) {
+        if (static_cast<uint_t>(hints.basisFunctionPositions.rows()) != m ||
+            static_cast<uint_t>(hints.basisFunctionPositions.cols()) != d) {
             throw std::runtime_error("incorrect dimensions for basis function position hint");
         }
 
@@ -1036,7 +1036,7 @@ void GPz::initializeBasisFunctionRelevances_(const GPzHints& hints) {
     if (useHints) {
         // Load relevances from hints
 
-        if (uint_t(hints.basisFunctionLogRelevances.rows()) != m) {
+        if (static_cast<uint_t>(hints.basisFunctionLogRelevances.rows()) != m) {
             throw std::runtime_error("incorrect dimension for basis function relevance hints");
         }
 
@@ -1459,8 +1459,8 @@ void GPz::initializeCovariances_(const GPzHints& hints) {
             bad = true;
         } else {
             for (uint_t j = 0; j < m; ++j) {
-                if (uint_t(hints.basisFunctionCovariances[j].rows()) != d ||
-                    uint_t(hints.basisFunctionCovariances[j].cols()) != d) {
+                if (static_cast<uint_t>(hints.basisFunctionCovariances[j].rows()) != d ||
+                    static_cast<uint_t>(hints.basisFunctionCovariances[j].cols()) != d) {
                     bad = true;
                     break;
                 }
@@ -1573,7 +1573,7 @@ void GPz::initializeErrors_(const GPzHints& hints) {
     if (useWeightHints) {
         // Load from hints
 
-        if (uint_t(hints.uncertaintyBasisWeights.rows()) != m) {
+        if (static_cast<uint_t>(hints.uncertaintyBasisWeights.rows()) != m) {
             throw std::runtime_error("incorrect dimension for uncertainty basis weights");
         }
 
@@ -1598,7 +1598,7 @@ void GPz::initializeErrors_(const GPzHints& hints) {
     if (useRelevanceHints) {
         // Load from hints
 
-        if (uint_t(hints.uncertaintyBasisLogRelevances.rows()) != m) {
+        if (static_cast<uint_t>(hints.uncertaintyBasisLogRelevances.rows()) != m) {
             throw std::runtime_error("incorrect dimension for uncertainty basis relevances");
         }
 
@@ -1993,7 +1993,7 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Vec2d& input, const Vec2d& i
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
-    if (funcs.rows() != n || funcs.cols() != m) {
+    if (static_cast<uint_t>(funcs.rows()) != n || static_cast<uint_t>(funcs.cols()) != m) {
         funcs.resize(n,m);
     }
 
@@ -2126,7 +2126,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
     // Pre-compute things
     double timePrev = 0, timeNow = 0;
     if (profileTraining_) {
-        std::cout << "#### " << (int)requested << std::endl;
+        std::cout << "#### " << static_cast<int>(requested) << std::endl;
         timePrev = now();
     }
 
