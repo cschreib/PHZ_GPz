@@ -379,23 +379,26 @@ struct GPzOptimizations {
 
    // Note: PHZ_GPz::Vec2d is just a shortcut to Eigen::ArrayXXd.
    PHZ_GPz::Vec2d input;  // input feature array, dimensions (Ntrain,Nfeature)
-   PHZ_GPz::Vec1d output; // output array, dimensions (Ntrain)
-   read_train_data(input, output); // read in from a file, create from simulation, etc...
+   PHZ_GPz::Vec2d error;  // input feature uncertainty array, dimensions (Ntrain,Nfeature)
+   PHZ_GPz::Vec1d output; // output value array, dimensions (Ntrain)
+   PHZ_GPz::Vec1d weight; // output weight array, dimensions (Ntrain)
+   read_train_data(input, error, output, weight); // read in from a file, create from simulation, etc...
 
    // Train the model
    // ---------------
 
    // Training without feature uncertainties, and with default weights
-   gpz.fit(input, output);
+   gpz.fit(input, error, output, weight);
 
    // Read in some data to make predictions
    // -------------------------------------
    PHZ_GPz::Vec2d testInput; // input feature array, dimensions (Ntest,Nfeature)
-   read_test_data(testInput); // read in from a file, create from simulation, etc...
+   PHZ_GPz::Vec2d testError; // input feature uncertainty array, dimensions (Ntest,Nfeature)
+   read_test_data(testInput, testError); // read in from a file, create from simulation, etc...
 
    // Make predictions
    // ----------------
-   PHZ_GPz::GPzOutput out = gpz.predict(testInput);
+   PHZ_GPz::GPzOutput out = gpz.predict(testInput, testError);
 
    out.value;       // predicted output
    out.uncertainty; // predicted output uncertainty (1 sigma)
