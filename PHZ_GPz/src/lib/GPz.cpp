@@ -858,6 +858,10 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
 
             break;
         }
+        case WeightingScheme::CUSTOM: {
+            // Cannot go there
+            break;
+        }
     }
 
     for (uint_t i = 0; i < n; ++i) {
@@ -876,6 +880,8 @@ void GPz::initializeInputs_(Vec2d input, Vec2d inputError, Vec1d output, Vec1d w
     if (weight.rows() == 0) {
         // Compute weights
         weight = computeWeights_(output);
+    } else {
+        weightingScheme_ = WeightingScheme::CUSTOM;
     }
 
     // Print weight statistics
