@@ -25,6 +25,7 @@
 namespace utf = boost::unit_test;
 namespace tt = boost::test_tools;
 
+// Check for availability of Boost features
 #if BOOST_VERSION / 100 % 1000 < 59
 #define NO_BOOST_TEST
 #endif
