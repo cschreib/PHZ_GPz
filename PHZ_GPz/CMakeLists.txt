@@ -125,7 +125,12 @@ else()
         include_directories(${GSL_INCLUDE_DIRS})
     endif()
 
-    add_library(GPz SHARED src/lib/GPz.cpp)
+    if (NOT GPZ_STATIC)
+        add_library(GPz SHARED src/lib/GPz.cpp)
+    else()
+        add_library(GPz STATIC src/lib/GPz.cpp)
+    endif()
+
     target_link_libraries(GPz ${EIGEN3_LIBRARIES})
     if (NOT GPZ_NO_GSL)
         target_link_libraries(GPz ${GSL_LIBRARIES})
