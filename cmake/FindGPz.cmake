@@ -26,7 +26,8 @@ if (NOT GPz_FIND_VERSION)
 endif()
 
 macro(_gpz_check_version)
-    file(READ "${GPZ_INCLUDE_DIR}/Config.h" _gpz_version_header)
+    message(STATUS ${GPZ_INCLUDE_DIR})
+    file(READ "${GPZ_INCLUDE_DIR}/PHZ_GPz/Config.h" _gpz_version_header)
 
     string(REGEX MATCH "define[ \t]+GPZ_WORLD_VERSION[ \t]+([0-9]+)" _gpz_world_version_match "${_gpz_version_header}")
     set(GPZ_WORLD_VERSION "${CMAKE_MATCH_1}")
