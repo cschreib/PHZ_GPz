@@ -74,7 +74,10 @@ else()
         _gpz_check_version()
     endif()
 
+    find_package(Eigen3 REQUIRED)
+
     set(GPZ_INCLUDE_DIRS ${GPZ_INCLUDE_DIR})
+    list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 
     include(FindPackageHandleStandardArgs)
     find_package_handle_standard_args(GPz DEFAULT_MSG
