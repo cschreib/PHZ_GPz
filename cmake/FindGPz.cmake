@@ -67,6 +67,7 @@ else()
         find_path(GPZ_INCLUDE_DIR NAMES PHZ_GPz/GPz.h
             HINTS
             ENV GPZ_ROOT_DIR
+            ${GPZ_ROOT_DIR}
             PATHS
             ${CMAKE_INSTALL_PREFIX}/include
         )
