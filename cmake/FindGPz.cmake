@@ -68,8 +68,6 @@ else()
             HINTS
             ENV GPZ_ROOT_DIR
             ${GPZ_ROOT_DIR}
-            PATHS
-            ${CMAKE_INSTALL_PREFIX}/include
         )
     endif()
 

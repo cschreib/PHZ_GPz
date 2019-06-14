@@ -83,8 +83,6 @@ else (EIGEN3_INCLUDE_DIR)
         ENV EIGEN3_ROOT_DIR
         ${EIGEN3_ROOT}
         ${EIGEN3_ROOT_DIR}
-        PATHS
-        ${CMAKE_INSTALL_PREFIX}/include
         PATH_SUFFIXES eigen3 eigen
       )
   endif(NOT EIGEN3_INCLUDE_DIR)
