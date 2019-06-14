@@ -368,7 +368,8 @@ struct GPzOptimizations {
  * @brief Training and prediction using Gaussian Processes
  *
  * Basic usage instructions:
- * @code
+ *
+   @code
    // Construct GPz class
    // -------------------
    PHZ_GPz::GPz gpz;
@@ -398,7 +399,7 @@ struct GPzOptimizations {
 
    out.value;       // predicted output
    out.uncertainty; // predicted output uncertainty (1 sigma)
- * @endcode
+   @endcode
  *
  */
 class GPz {
