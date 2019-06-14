@@ -85,7 +85,6 @@ else (EIGEN3_INCLUDE_DIR)
         ${EIGEN3_ROOT_DIR}
         PATHS
         ${CMAKE_INSTALL_PREFIX}/include
-        ${KDE4_INCLUDE_DIR}
         PATH_SUFFIXES eigen3 eigen
       )
   endif(NOT EIGEN3_INCLUDE_DIR)
