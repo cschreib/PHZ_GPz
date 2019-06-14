@@ -367,6 +367,37 @@ struct GPzOptimizations {
  * @class GPz
  * @brief Training and prediction using Gaussian Processes
  *
+ * Basic usage instructions:
+ * @code
+ * // Construct GPz class
+ * // -------------------
+ * PHZ_GPz::GPz gpz;
+ *
+ * // Read in some training data
+ * // --------------------------
+ *
+ * // Note: PHZ_GPz::Vec2d is just a shortcut to Eigen::ArrayXXd.
+ * PHZ_GPz::Vec2d input;  // input feature array, dimensions (Ntrain,Nfeature)
+ * PHZ_GPz::Vec1d output; // output array, dimensions (Ntrain)
+ * read_train_data(input, output); // read in from a file, create from simulation, etc...
+ *
+ * // Train the model
+ * // ---------------
+ * gpz.fit(input, output);
+ *
+ * // Read in some data to make predictions
+ * // -------------------------------------
+ * PHZ_GPz::Vec2d testInput; // input feature array, dimensions (Ntest,Nfeature)
+ * read_test_data(testInput); // read in from a file, create from simulation, etc...
+ *
+ * // Make predictions
+ * // ----------------
+ * PHZ_GPz::GPzOutput out = gpz.predict(testInput);
+ *
+ * out.value;       // predicted output
+ * out.uncertainty; // predicted output uncertainty (1 sigma)
+ * @endcode
+ *
  */
 class GPz {
 
