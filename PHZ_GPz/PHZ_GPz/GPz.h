@@ -477,14 +477,14 @@ class GPz {
     // Minimization variables
     // ======================
 
-    Mat2d inputTrain_;      // GPzMatLab: X[training,:]
-    Mat2d inputErrorTrain_; // GPzMatLab: Psi[training,:]
+    Vec2d inputTrain_;      // GPzMatLab: X[training,:]
+    Vec2d inputErrorTrain_; // GPzMatLab: Psi[training,:]
     Vec1d outputTrain_;     // GPzMatLab: Y[training,:]
     Vec1d weightTrain_;     // GPzMatLab: omega[training,:]
     double sumWeightTrain_ = 0.0;
     Vec1i missingTrain_;
-    Mat2d inputValid_;      // GPzMatLab: X[validation,:]
-    Mat2d inputErrorValid_; // GPzMatLab: Psi[validation,:]
+    Vec2d inputValid_;      // GPzMatLab: X[validation,:]
+    Vec2d inputErrorValid_; // GPzMatLab: Psi[validation,:]
     Vec1d outputValid_;     // GPzMatLab: Y[validation,:]
     Vec1d weightValid_;     // GPzMatLab: omega[validation,:]
     double sumWeightValid_ = 0.0;
@@ -542,28 +542,28 @@ class GPz {
 
     void reset_();
 
-    void applyInputNormalization_(Mat2d& input, Mat2d& inputError) const;
+    void applyInputNormalization_(Vec2d& input, Vec2d& inputError) const;
 
-    void applyOutputNormalization_(const Mat2d& input, const Vec1i& missing, Vec1d& output) const;
+    void applyOutputNormalization_(const Vec2d& input, const Vec1i& missing, Vec1d& output) const;
 
-    void restoreOutputNormalization_(const Mat2d& input, const Vec1i& missing, GPzOutput& output) const;
+    void restoreOutputNormalization_(const Vec2d& input, const Vec1i& missing, GPzOutput& output) const;
 
-    void computeWhitening_(const Mat2d& input);
+    void computeWhitening_(const Vec2d& input);
 
-    void computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputError,
+    void computeLinearDecorrelation_(const Vec2d& input, const Vec2d& inputError,
         const Vec1d& output, const Vec1d& weight);
 
-    void normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i& missing,
+    void normalizeTrainingInputs_(Vec2d& input, Vec2d& inputError, const Vec1i& missing,
         Vec1d& output, const Vec1d& weight);
 
-    void eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output, Vec1d& weight) const;
+    void eraseInvalidTrainData_(Vec2d& input, Vec2d& inputError, Vec1d& output, Vec1d& weight) const;
 
-    void splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
+    void splitTrainValid_(const Vec2d& input, const Vec2d& inputError,
         const Vec1d& output, const Vec1d& weight);
 
     Vec1d computeWeights_(const Vec1d& output) const;
 
-    void initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight);
+    void initializeInputs_(Vec2d input, Vec2d inputError, Vec1d output, Vec1d weight);
 
     void computeTrainingPCA_();
 
@@ -573,13 +573,13 @@ class GPz {
 
     void initializeBasisFunctionRelevances_(const GPzHints& hints);
 
-    void buildMissingCache_(const Mat2d& input) const;
+    void buildMissingCache_(const Vec2d& input) const;
 
     const MissingCacheElement* findMissingCacheElement_(int id) const;
 
     const MissingCacheElement& getMissingCacheElement_(int id) const;
 
-    Vec1i getBestMissingID_(const Mat2d& input) const;
+    Vec1i getBestMissingID_(const Vec2d& input) const;
 
     void fetchMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
         char first, char second) const;
@@ -590,9 +590,9 @@ class GPz {
     void addMatrixElements_(Mat2d& out, const Mat2d& in, const MissingCacheElement& element,
         char first, char second) const;
 
-    Mat2d initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) const;
+    Vec2d initializeCovariancesFillLinear_(Vec2d input, const Vec1i& missing) const;
 
-    Vec1d initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& missing) const;
+    Vec1d initializeCovariancesMakeGamma_(const Vec2d& input, const Vec1i& missing) const;
 
     void initializeCovariances_(const GPzHints& hints);
 
@@ -600,25 +600,25 @@ class GPz {
 
     void initializeFit_(const GPzHints& hints);
 
-    bool checkInputDimensions_(const Mat2d& input) const;
+    bool checkInputDimensions_(const Vec2d& input) const;
 
-    bool checkOutputDimensions_(const Mat2d& input, const Vec1d& output) const;
+    bool checkOutputDimensions_(const Vec2d& input, const Vec1d& output) const;
 
-    bool checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const;
+    bool checkErrorDimensions_(const Vec2d& input, const Vec2d& inputError) const;
 
     // =======================
     // Internal functions: fit
     // =======================
 
-    Mat1d evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const;
+    Mat1d evaluateBasisFunctionsGeneral_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element) const;
 
-    Mat1d evaluateBasisFunctionsDiag_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const;
+    Mat1d evaluateBasisFunctionsDiag_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element) const;
 
-    Mat1d evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const;
+    Mat1d evaluateBasisFunctions_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element) const;
 
-    void updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
+    void updateBasisFunctions_(Mat2d& funcs, const Vec2d& input, const Vec2d& inputError, const Vec1i& missing) const;
 
-    Mat2d evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
+    Mat2d evaluateBasisFunctions_(const Vec2d& input, const Vec2d& inputError, const Vec1i& missing) const;
 
     double evaluateOutputLogError_(const Mat1d& basisFunctions) const;
 
@@ -648,18 +648,18 @@ class GPz {
     // Internal functions: prediction
     // ==============================
 
-    void predictFull_(const Mat1d& input, const MissingCacheElement& element, double& value,
+    void predictFull_(const Vec1d& input, const MissingCacheElement& element, double& value,
         double& varianceTrainDensity, double& varianceTrainNoise) const;
 
-    void predictNoisy_(const Mat1d& input, const Mat1d& inputError,
+    void predictNoisy_(const Vec1d& input, const Vec1d& inputError,
         const MissingCacheElement& element, double& value,
         double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;
 
-    void predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError,
+    void predictMissingNoisy_(const Vec1d& input, const Vec1d& inputError,
         const MissingCacheElement& element, double& value,
         double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const;
 
-    GPzOutput predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const;
+    GPzOutput predict_(const Vec2d& input, const Vec2d& inputError, const Vec1i& missing) const;
 
 public:
 
@@ -703,7 +703,7 @@ public:
      *
      * Once the training is complete, you may use the getModel() and predict() functions.
      */
-    void fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight,
+    void fit(Vec2d input, Vec2d inputError, Vec1d output, Vec1d weight,
         const GPzHints& hints = GPzHints{});
 
     /**@}*/
@@ -810,7 +810,7 @@ public:
      * \pre A model must currently exist in the class, for example by calling fit() or loadModel().
      * If not, the function will throw an exception.
      */
-    GPzOutput predict(Mat2d input, Mat2d inputError) const;
+    GPzOutput predict(Vec2d input, Vec2d inputError) const;
 
     /**@}*/
 

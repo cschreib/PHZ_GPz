@@ -441,7 +441,7 @@ void GPz::reset_() {
     modelInputPrior_.resize(0);
 }
 
-void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
+void GPz::applyInputNormalization_(Vec2d& input, Vec2d& inputError) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -466,7 +466,7 @@ void GPz::applyInputNormalization_(Mat2d& input, Mat2d& inputError) const {
     }
 }
 
-void GPz::applyOutputNormalization_(const Mat2d& input, const Vec1i& /* missing */, Vec1d& output) const {
+void GPz::applyOutputNormalization_(const Vec2d& input, const Vec1i& /* missing */, Vec1d& output) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -485,7 +485,7 @@ void GPz::applyOutputNormalization_(const Mat2d& input, const Vec1i& /* missing 
     }
 }
 
-void GPz::restoreOutputNormalization_(const Mat2d& input, const Vec1i& /* missing */, GPzOutput& output) const {
+void GPz::restoreOutputNormalization_(const Vec2d& input, const Vec1i& /* missing */, GPzOutput& output) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -504,7 +504,7 @@ void GPz::restoreOutputNormalization_(const Mat2d& input, const Vec1i& /* missin
     }
 }
 
-void GPz::computeWhitening_(const Mat2d& input) {
+void GPz::computeWhitening_(const Vec2d& input) {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -540,7 +540,7 @@ void GPz::computeWhitening_(const Mat2d& input) {
     }
 }
 
-void GPz::computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputError,
+void GPz::computeLinearDecorrelation_(const Vec2d& input, const Vec2d& inputError,
     const Vec1d& output, const Vec1d& weight) {
 
     const uint_t d = numberFeatures_;
@@ -626,7 +626,7 @@ void GPz::computeLinearDecorrelation_(const Mat2d& input, const Mat2d& inputErro
     decorrelationCoefficients_ = cholesky.solve(modelObs);
 }
 
-void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i& missing,
+void GPz::normalizeTrainingInputs_(Vec2d& input, Vec2d& inputError, const Vec1i& missing,
     Vec1d& output, const Vec1d& weight) {
 
     // Inputs
@@ -648,7 +648,7 @@ void GPz::normalizeTrainingInputs_(Mat2d& input, Mat2d& inputError, const Vec1i&
     applyOutputNormalization_(input, missing, output);
 }
 
-void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output, Vec1d& weight) const {
+void GPz::eraseInvalidTrainData_(Vec2d& input, Vec2d& inputError, Vec1d& output, Vec1d& weight) const {
     uint_t n = input.rows();
     const uint_t d = numberFeatures_;
     const bool noError = inputError.rows() == 0;
@@ -683,10 +683,10 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output,
             std::cout << "removing " << n - valid.size() << " invalid inputs" << std::endl;
         }
 
-        Mat2d oldInput  = std::move(input);
-        Mat2d oldError  = std::move(inputError);
-        Mat1d oldOutput = std::move(output);
-        Mat1d oldWeight = std::move(weight);
+        Vec2d oldInput  = std::move(input);
+        Vec2d oldError  = std::move(inputError);
+        Vec1d oldOutput = std::move(output);
+        Vec1d oldWeight = std::move(weight);
 
         n = valid.size();
 
@@ -713,7 +713,7 @@ void GPz::eraseInvalidTrainData_(Mat2d& input, Mat2d& inputError, Vec1d& output,
     }
 }
 
-void GPz::splitTrainValid_(const Mat2d& input, const Mat2d& inputError,
+void GPz::splitTrainValid_(const Vec2d& input, const Vec2d& inputError,
     const Vec1d& output, const Vec1d& weight) {
 
     if (trainValidRatio_ == 1.0) {
@@ -869,7 +869,7 @@ Vec1d GPz::computeWeights_(const Vec1d& output) const {
     return weight;
 }
 
-void GPz::initializeInputs_(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight) {
+void GPz::initializeInputs_(Vec2d input, Vec2d inputError, Vec1d output, Vec1d weight) {
     // Cleanup the sample
     eraseInvalidTrainData_(input, inputError, output, weight);
 
@@ -1063,7 +1063,7 @@ void GPz::initializeBasisFunctionRelevances_(const GPzHints& hints) {
     }
 }
 
-void GPz::buildMissingCache_(const Mat2d& input) const {
+void GPz::buildMissingCache_(const Vec2d& input) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -1175,7 +1175,7 @@ const GPz::MissingCacheElement& GPz::getMissingCacheElement_(int id) const {
     return *element;
 }
 
-Vec1i GPz::getBestMissingID_(const Mat2d& input) const {
+Vec1i GPz::getBestMissingID_(const Vec2d& input) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -1387,7 +1387,7 @@ void GPz::buildLinearPredictorCache_() {
     }
 }
 
-Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) const {
+Vec2d GPz::initializeCovariancesFillLinear_(Vec2d input, const Vec1i& missing) const {
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
@@ -1419,13 +1419,13 @@ Mat2d GPz::initializeCovariancesFillLinear_(Mat2d input, const Vec1i& missing) c
     return input;
 }
 
-Vec1d GPz::initializeCovariancesMakeGamma_(const Mat2d& input, const Vec1i& missing) const {
+Vec1d GPz::initializeCovariancesMakeGamma_(const Vec2d& input, const Vec1i& missing) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
     const uint_t n = input.rows();
 
     // Replace missing data by linear predictions based on observed data
-    Mat2d linearInputs = initializeCovariancesFillLinear_(input, missing);
+    Vec2d linearInputs = initializeCovariancesFillLinear_(input, missing);
 
     Vec1d gamma(m);
     double factor = 0.5*pow(m, 1.0/d);
@@ -1634,15 +1634,15 @@ void GPz::initializeFit_(const GPzHints& hints) {
     }
 }
 
-bool GPz::checkInputDimensions_(const Mat2d& input) const {
+bool GPz::checkInputDimensions_(const Vec2d& input) const {
     return static_cast<uint_t>(input.cols()) == numberFeatures_;
 }
 
-bool GPz::checkOutputDimensions_(const Mat2d& input, const Vec1d& output) const {
+bool GPz::checkOutputDimensions_(const Vec2d& input, const Vec1d& output) const {
     return output.rows() == input.rows();
 }
 
-bool GPz::checkErrorDimensions_(const Mat2d& input, const Mat2d& inputError) const {
+bool GPz::checkErrorDimensions_(const Vec2d& input, const Vec2d& inputError) const {
     bool noError = inputError.size() == 0;
     bool errorSameSize = inputError.rows() == input.rows() && inputError.cols() == input.cols();
     return noError || errorSameSize;
@@ -1868,7 +1868,7 @@ void GPz::updateValidOutputErrors_() {
     validOutputLogError_ = evaluateOutputLogErrors_(validBasisFunctions_);
 }
 
-Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
+Mat1d GPz::evaluateBasisFunctionsGeneral_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
@@ -1887,7 +1887,7 @@ Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& input
         double value = log2*element.countMissing;
 
         if (element.countMissing < d) {
-            deltaAll = input - parameters_.basisFunctionPositions.row(j).transpose();
+            deltaAll = input.matrix() - parameters_.basisFunctionPositions.row(j).transpose();
             fetchVectorElements_(delta, deltaAll, element, 'o');
 
             if (inputError.rows() == 0) {
@@ -1915,7 +1915,7 @@ Mat1d GPz::evaluateBasisFunctionsGeneral_(const Mat1d& input, const Mat1d& input
     return funcs;
 }
 
-Mat1d GPz::evaluateBasisFunctionsDiag_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
+Mat1d GPz::evaluateBasisFunctionsDiag_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element) const {
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
 
@@ -1974,7 +1974,7 @@ Mat1d GPz::evaluateBasisFunctionsDiag_(const Mat1d& input, const Mat1d& inputErr
     return funcs;
 }
 
-Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element) const {
+Mat1d GPz::evaluateBasisFunctions_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element) const {
     const uint_t d = numberFeatures_;
 
     const bool diagonalCovariance = covarianceType_ == CovarianceType::VARIABLE_DIAGONAL ||
@@ -1988,7 +1988,7 @@ Mat1d GPz::evaluateBasisFunctions_(const Mat1d& input, const Mat1d& inputError, 
     }
 }
 
-void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+void GPz::updateBasisFunctions_(Mat2d& funcs, const Vec2d& input, const Vec2d& inputError, const Vec1i& missing) const {
     const uint_t n = input.rows();
     const uint_t m = numberBasisFunctions_;
     const uint_t d = numberFeatures_;
@@ -2058,7 +2058,7 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
         } else {
             // General code for any number of features
             if (inputError.rows() == 0) {
-                funcs.row(i) = evaluateBasisFunctionsGeneral_(input.row(i), Mat1d{}, element).transpose();
+                funcs.row(i) = evaluateBasisFunctionsGeneral_(input.row(i), Vec1d{}, element).transpose();
             } else {
                 funcs.row(i) = evaluateBasisFunctionsGeneral_(input.row(i), inputError.row(i), element).transpose();
             }
@@ -2069,7 +2069,7 @@ void GPz::updateBasisFunctions_(Mat2d& funcs, const Mat2d& input, const Mat2d& i
     pool.execute(computeForSource, n);
 }
 
-Mat2d GPz::evaluateBasisFunctions_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+Mat2d GPz::evaluateBasisFunctions_(const Vec2d& input, const Vec2d& inputError, const Vec1i& missing) const {
     Mat2d funcs;
     updateBasisFunctions_(funcs, input, inputError, missing);
     return funcs;
@@ -2342,7 +2342,7 @@ void GPz::updateTrainModel_(Minimize::FunctionOutput requested) {
             for (uint_t i = 0; i < n; ++i) {
                 const MissingCacheElement& element = getMissingCacheElement_(missingTrain_[i]);
 
-                deltaAll = inputTrain_.row(i) - parameters_.basisFunctionPositions.row(j);
+                deltaAll = inputTrain_.row(i).matrix() - parameters_.basisFunctionPositions.row(j);
                 fetchVectorElements_(delta, deltaAll, element, 'o');
 
                 if (inputErrorTrain_.rows() == 0) {
@@ -2525,12 +2525,12 @@ void GPz::computeInputPriors_() {
 // Internal functions: prediction
 // ==============================
 
-void GPz::predictFull_(const Mat1d& input, const MissingCacheElement& element, double& value,
+void GPz::predictFull_(const Vec1d& input, const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise) const {
 
     // The simplest GPz case: no missing data, no noisy inputs
 
-    Mat1d basis = evaluateBasisFunctions_(input, Mat1d{}, element);
+    Mat1d basis = evaluateBasisFunctions_(input, Vec1d{}, element);
 
     value = basis.transpose()*modelWeights_; // GPzMatLab: mu
 
@@ -2543,7 +2543,7 @@ void GPz::predictFull_(const Mat1d& input, const MissingCacheElement& element, d
     }
 }
 
-void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
+void GPz::predictNoisy_(const Vec1d& input, const Vec1d& inputError,
     const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
 
@@ -2619,8 +2619,8 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
 
                 // Now this is source-specific
 
-                Delta = input - cij;
-                Cij.diagonal() += inputError;
+                Delta = input.matrix() - cij;
+                Cij.diagonal() += inputError.matrix();
                 svd.compute(Cij, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
                 DeltaSolved = svd.solve(Delta);
@@ -2642,7 +2642,7 @@ void GPz::predictNoisy_(const Mat1d& input, const Mat1d& inputError,
     }
 }
 
-void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, const MissingCacheElement& element, double& value,
+void GPz::predictMissingNoisy_(const Vec1d& input, const Vec1d& inputError, const MissingCacheElement& element, double& value,
     double& varianceTrainDensity, double& varianceTrainNoise, double& varianceInputNoise) const {
 
     const uint_t m = numberBasisFunctions_;
@@ -2697,7 +2697,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
             }
         } else {
             Mat1d position = parameters_.basisFunctionPositions.row(i);
-            Mat1d Delta = input - position;
+            Mat1d Delta = input.matrix() - position;
             Mat1d DeltaObserved;
             fetchVectorElements_(DeltaObserved, Delta, element, 'o');
 
@@ -2895,7 +2895,7 @@ void GPz::predictMissingNoisy_(const Mat1d& input, const Mat1d& inputError, cons
     }
 }
 
-GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i& missing) const {
+GPzOutput GPz::predict_(const Vec2d& input, const Vec2d& inputError, const Vec1i& missing) const {
     const uint_t n = input.rows();
     const uint_t m = numberBasisFunctions_;
     const bool noError = inputError.rows() == 0;
@@ -3021,7 +3021,7 @@ GPzOutput GPz::predict_(const Mat2d& input, const Mat2d& inputError, const Vec1i
 // Fit/training function
 // =====================
 
-void GPz::fit(Mat2d input, Mat2d inputError, Vec1d output, Vec1d weight, const GPzHints& hints) {
+void GPz::fit(Vec2d input, Vec2d inputError, Vec1d output, Vec1d weight, const GPzHints& hints) {
     // Check inputs are consistent
     if (input.rows() == 0) {
         throw std::runtime_error("cannot fit an empty training set");
@@ -3336,7 +3336,7 @@ GPzModel GPz::getModel() const {
 // Prediction function
 // ===================
 
-GPzOutput GPz::predict(Mat2d input, Mat2d inputError) const {
+GPzOutput GPz::predict(Vec2d input, Vec2d inputError) const {
     // Check input is consistent
     if (!checkInputDimensions_(input)) {
         throw std::runtime_error("input has incorrect dimension");
