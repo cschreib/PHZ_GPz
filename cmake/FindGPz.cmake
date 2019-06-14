@@ -59,7 +59,9 @@ else()
     # search first if an GPzConfig.cmake is available in the system,
     # if successful this would set GPZ_INCLUDE_DIR and the rest of
     # the script will work as usual
-    find_package(GPz ${GPz_FIND_VERSION} NO_MODULE QUIET)
+    if (NOT GPZ_ROOT_DIR)
+        find_package(GPz ${GPz_FIND_VERSION} NO_MODULE QUIET)
+    endif()
 
     if (NOT GPZ_INCLUDE_DIR)
         find_path(GPZ_INCLUDE_DIR NAMES PHZ_GPz/GPz.h
