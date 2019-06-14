@@ -54,8 +54,9 @@ if (GPZ_INCLUDE_DIR)
     _gpz_check_version()
     set(GPZ_FOUND ${GPZ_VERSION_OK})
     set(GPZ_INCLUDE_DIRS ${GPZ_INCLUDE_DIR})
-    list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 
+    find_package(Eigen3 REQUIRED)
+    list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 
 else()
 
@@ -85,9 +86,9 @@ else()
         _gpz_check_version()
     endif()
 
-    find_package(Eigen3 REQUIRED)
-
     set(GPZ_INCLUDE_DIRS ${GPZ_INCLUDE_DIR})
+
+    find_package(Eigen3 REQUIRED)
     list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 
     include(FindPackageHandleStandardArgs)
