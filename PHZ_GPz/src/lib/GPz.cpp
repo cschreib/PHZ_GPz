@@ -3454,6 +3454,10 @@ WeightingScheme GPz::getWeightingScheme() const {
 }
 
 void GPz::setBalancedWeightingBinSize(double size) {
+    if (size <= 0 || !std::isfinite(size)) {
+        throw std::runtime_error("invalid value for maximum balanced weighting bin size, must be > 0");
+    }
+
     balancedWeightingBinSize_ = size;
 }
 
@@ -3462,6 +3466,10 @@ double GPz::getBalancedWeightingBinSize() const {
 }
 
 void GPz::setBalancedWeightingMaxWeight(double weight) {
+    if (weight < 0 || !std::isfinite(weight)) {
+        throw std::runtime_error("invalid value for maximum balanced weighting weight, must be >= 0");
+    }
+
     balancedWeightingMaxWeight_ = weight;
 }
 
@@ -3486,6 +3494,10 @@ TrainValidationSplitMethod GPz::getTrainValidationSplitMethod() const {
 }
 
 void GPz::setTrainValidationRatio(double ratio) {
+    if (ratio < 0 || ratio > 1) {
+        throw std::runtime_error("invalid value for train/validation split ratio, must be in [0,1]");
+    }
+
     trainValidRatio_ = ratio;
 }
 
@@ -3558,6 +3570,10 @@ uint_t GPz::getOptimizationMaxIterations() const {
 }
 
 void GPz::setOptimizationTolerance(double tolerance) {
+    if (tolerance < 0 || !std::isfinite(tolerance)) {
+        throw std::runtime_error("invalid value for optimization tolerance, must be >= 0");
+    }
+
     optimizationTolerance_ = tolerance;
 }
 
@@ -3566,6 +3582,10 @@ double GPz::getOptimizationTolerance() const {
 }
 
 void GPz::setOptimizationGradientTolerance(double tolerance) {
+    if (tolerance < 0 || !std::isfinite(tolerance)) {
+        throw std::runtime_error("invalid value for optimization gradient tolerance, must be >= 0");
+    }
+
     optimizationGradientTolerance_ = tolerance;
 }
 
