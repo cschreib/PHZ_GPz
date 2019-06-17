@@ -72,6 +72,7 @@ else()
             HINTS
             ENV GPZ_ROOT_DIR
             ${GPZ_ROOT_DIR}
+            PATH_SUFFIXES include
         )
     endif()
 
