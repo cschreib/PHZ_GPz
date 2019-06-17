@@ -157,11 +157,13 @@ enum class OutputUncertaintyType {
 enum class WeightingScheme {
     UNIFORM,
     ONE_OVER_ONE_PLUS_OUTPUT,
-    BALANCED
+    BALANCED,
+    CUSTOM
 };
 
 /** \var PHZ_GPz::WeightingScheme::UNIFORM
  * @brief All the training data has the same weight (default).
+ *
  */
 
 /** \var PHZ_GPz::WeightingScheme::ONE_OVER_ONE_PLUS_OUTPUT
@@ -176,6 +178,13 @@ enum class WeightingScheme {
  * This weights training data by '1/counts', where 'counts' is the number of training data points with
  * similar output value. The similarity criterion can be controlled using setBalancedWeightingBinSize().
  * This scheme avoids under-weighting the regions of the training set that are under-represented.
+ */
+
+/** \var PHZ_GPz::WeightingScheme::CUSTOM
+ * @brief Weight training data using user-provided weights
+ *
+ * This weighting scheme is automatically selected if the user provides weights in the fit()
+ * function.
  */
 
 /**

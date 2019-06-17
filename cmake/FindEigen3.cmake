@@ -72,16 +72,17 @@ else (EIGEN3_INCLUDE_DIR)
   # search first if an Eigen3Config.cmake is available in the system,
   # if successful this would set EIGEN3_INCLUDE_DIR and the rest of
   # the script will work as usual
-  find_package(Eigen3 ${Eigen3_FIND_VERSION} NO_MODULE QUIET)
+  if(NOT EIGEN3_ROOT_DIR)
+    find_package(Eigen3 ${Eigen3_FIND_VERSION} NO_MODULE QUIET)
+  endif()
 
   if(NOT EIGEN3_INCLUDE_DIR)
     find_path(EIGEN3_INCLUDE_DIR NAMES Eigen/Eigen
         HINTS
         ENV EIGEN3_ROOT
         ENV EIGEN3_ROOT_DIR
-        PATHS
-        ${CMAKE_INSTALL_PREFIX}/include
-        ${KDE4_INCLUDE_DIR}
+        ${EIGEN3_ROOT}
+        ${EIGEN3_ROOT_DIR}
         PATH_SUFFIXES eigen3 eigen
       )
   endif(NOT EIGEN3_INCLUDE_DIR)

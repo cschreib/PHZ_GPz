@@ -26,7 +26,7 @@ if (NOT GPz_FIND_VERSION)
 endif()
 
 macro(_gpz_check_version)
-    file(READ "${GPZ_INCLUDE_DIR}/Config.h" _gpz_version_header)
+    file(READ "${GPZ_INCLUDE_DIR}/PHZ_GPz/Config.h" _gpz_version_header)
 
     string(REGEX MATCH "define[ \t]+GPZ_WORLD_VERSION[ \t]+([0-9]+)" _gpz_world_version_match "${_gpz_version_header}")
     set(GPZ_WORLD_VERSION "${CMAKE_MATCH_1}")
@@ -53,20 +53,33 @@ if (GPZ_INCLUDE_DIR)
     # in cache already
     _gpz_check_version()
     set(GPZ_FOUND ${GPZ_VERSION_OK})
+    set(GPZ_INCLUDE_DIRS ${GPZ_INCLUDE_DIR})
+
+    find_package(Eigen3 REQUIRED)
+    list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 
 else()
 
     # search first if an GPzConfig.cmake is available in the system,
     # if successful this would set GPZ_INCLUDE_DIR and the rest of
     # the script will work as usual
-    find_package(GPz ${GPz_FIND_VERSION} NO_MODULE QUIET)
+    if (NOT GPZ_ROOT_DIR)
+        find_package(GPz ${GPz_FIND_VERSION} NO_MODULE QUIET)
+    endif()
 
     if (NOT GPZ_INCLUDE_DIR)
         find_path(GPZ_INCLUDE_DIR NAMES PHZ_GPz/GPz.h
             HINTS
             ENV GPZ_ROOT_DIR
-            PATHS
-            ${CMAKE_INSTALL_PREFIX}/include
+            ${GPZ_ROOT_DIR}
+            PATH_SUFFIXES include
+        )
+    endif()
+
+    if (NOT GPZ_LIBRARIES)
+        find_library(GPZ_LIBRARIES GPz
+            HINTS ${GPZ_ROOT_DIR}
+            PATH_SUFFIXES lib
         )
     endif()
 
@@ -76,9 +89,12 @@ else()
 
     set(GPZ_INCLUDE_DIRS ${GPZ_INCLUDE_DIR})
 
+    find_package(Eigen3 REQUIRED)
+    list(APPEND GPZ_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+
     include(FindPackageHandleStandardArgs)
     find_package_handle_standard_args(GPz DEFAULT_MSG
-        GPZ_INCLUDE_DIR GPZ_INCLUDE_DIRS GPZ_VERSION_OK)
+        GPZ_INCLUDE_DIR GPZ_INCLUDE_DIRS GPZ_LIBRARIES GPZ_VERSION_OK)
 
     mark_as_advanced(GPZ_INCLUDE_DIR GPZ_INCLUDE_DIRS)
 
